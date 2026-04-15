@@ -135,6 +135,15 @@ const titleEl = document.getElementById("page-title");
 const breadcrumbEl = document.getElementById("breadcrumb");
 const topbarActionsEl = document.getElementById("topbar-actions");
 
+function parseHashState() {
+  const raw = location.hash.replace(/^#/, "") || "/dashboard";
+  const [pathPart, queryString = ""] = raw.split("?");
+  return {
+    path: pathPart || "/dashboard",
+    params: new URLSearchParams(queryString),
+  };
+}
+
 function init() {
   renderNav();
   window.addEventListener("hashchange", renderRoute);
@@ -146,7 +155,31 @@ function init() {
 }
 
 function getCurrentPath() {
-  return location.hash.replace(/^#/, "") || "/dashboard";
+  return parseHashState().path;
+}
+
+function buildHash(path, params) {
+  const search = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      search.set(key, value);
+    }
+  });
+  const query = search.toString();
+  return `#${path}${query ? `?${query}` : ""}`;
+}
+
+function filterChipLink(label, path, params, active = false) {
+  return `<a class="filter-chip ${active ? "active" : ""}" href="${buildHash(path, params)}">${label}</a>`;
+}
+
+function filterField(label, value) {
+  return `
+    <div class="filter-field">
+      <div class="filter-field-label">${label}</div>
+      <div class="filter-field-value">${value}</div>
+    </div>
+  `;
 }
 
 function renderNav() {
@@ -172,24 +205,22 @@ function renderNav() {
 }
 
 function renderRoute() {
-  const path = getCurrentPath();
+  const { path, params } = parseHashState();
   const route = ROUTES[path] || ROUTES["/dashboard"];
   titleEl.textContent = route.title;
   breadcrumbEl.textContent = route.breadcrumb;
+  topbarActionsEl.dataset.scope = path === "/dashboard" || path === "/dashboard/board" ? "dashboard" : "default";
   topbarActionsEl.innerHTML = renderTopbarActions(path);
   renderNav();
-  appEl.innerHTML = route.render();
+  appEl.innerHTML = route.render(params);
 }
 
 function renderTopbarActions(path) {
   if (path === "/dashboard" || path === "/dashboard/board") {
     return `
-      <label class="search-box">
-        <span class="material-symbols-outlined">search</span>
-        <input type="text" placeholder="제작번호, 현장명, 설비 검색" />
-      </label>
-      <button class="ghost-btn">현황 동기화</button>
-      <button class="primary-btn">보고서 내보내기</button>
+      <div class="topbar-badge">기준일 2026-04-15</div>
+      <button class="ghost-btn">현황 새로고침</button>
+      <button class="primary-btn">보고서 다운로드</button>
     `;
   }
 
@@ -297,60 +328,71 @@ function trendChart() {
         <div class="legend-item"><span class="legend-swatch tg"></span><span>TG</span></div>
         <div class="legend-item"><span class="legend-swatch assembly"></span><span>조립</span></div>
         <div class="legend-item"><span class="legend-swatch wire"></span><span>신선</span></div>
+        <div class="legend-item"><span class="legend-swatch forming"></span><span>포밍</span></div>
       </div>
-      <svg viewBox="0 0 640 220" class="trend-svg" role="img" aria-label="시간대별 생산량 추이">
+      <svg viewBox="0 0 720 220" class="trend-svg" role="img" aria-label="시간대별 생산량 추이">
         <line x1="44" y1="22" x2="44" y2="176" class="trend-axis"></line>
-        <line x1="44" y1="176" x2="604" y2="176" class="trend-axis"></line>
+        <line x1="44" y1="176" x2="684" y2="176" class="trend-axis"></line>
 
-        <line x1="44" y1="48" x2="604" y2="48" class="trend-grid"></line>
-        <line x1="44" y1="80" x2="604" y2="80" class="trend-grid"></line>
-        <line x1="44" y1="112" x2="604" y2="112" class="trend-grid"></line>
-        <line x1="44" y1="144" x2="604" y2="144" class="trend-grid"></line>
+        <line x1="44" y1="48" x2="684" y2="48" class="trend-grid"></line>
+        <line x1="44" y1="80" x2="684" y2="80" class="trend-grid"></line>
+        <line x1="44" y1="112" x2="684" y2="112" class="trend-grid"></line>
+        <line x1="44" y1="144" x2="684" y2="144" class="trend-grid"></line>
 
         <text x="10" y="52" class="trend-y-label">1200</text>
         <text x="16" y="84" class="trend-y-label">900</text>
         <text x="16" y="116" class="trend-y-label">600</text>
         <text x="16" y="148" class="trend-y-label">300</text>
 
-        <polyline points="64,166 136,154 208,138 280,122 352,108 424,92 496,76 568,56" class="trend-line tg"></polyline>
-        <polyline points="64,170 136,160 208,148 280,136 352,124 424,112 496,96 568,84" class="trend-line assembly"></polyline>
-        <polyline points="64,172 136,164 208,154 280,142 352,130 424,120 496,108 568,96" class="trend-line wire"></polyline>
+        <polyline points="64,166 146,154 228,138 310,122 392,108 474,92 556,76 638,56" class="trend-line tg"></polyline>
+        <polyline points="64,170 146,160 228,148 310,136 392,124 474,112 556,96 638,84" class="trend-line assembly"></polyline>
+        <polyline points="64,172 146,164 228,154 310,142 392,130 474,120 556,108 638,96" class="trend-line wire"></polyline>
+        <polyline points="64,174 146,168 228,160 310,150 392,140 474,132 556,122 638,112" class="trend-line forming"></polyline>
 
         <circle cx="64" cy="166" r="4" class="trend-point tg"></circle>
-        <circle cx="136" cy="154" r="4" class="trend-point tg"></circle>
-        <circle cx="208" cy="138" r="4" class="trend-point tg"></circle>
-        <circle cx="280" cy="122" r="4" class="trend-point tg"></circle>
-        <circle cx="352" cy="108" r="4" class="trend-point tg"></circle>
-        <circle cx="424" cy="92" r="4" class="trend-point tg"></circle>
-        <circle cx="496" cy="76" r="4" class="trend-point tg"></circle>
-        <circle cx="568" cy="56" r="4" class="trend-point tg"></circle>
+        <circle cx="146" cy="154" r="4" class="trend-point tg"></circle>
+        <circle cx="228" cy="138" r="4" class="trend-point tg"></circle>
+        <circle cx="310" cy="122" r="4" class="trend-point tg"></circle>
+        <circle cx="392" cy="108" r="4" class="trend-point tg"></circle>
+        <circle cx="474" cy="92" r="4" class="trend-point tg"></circle>
+        <circle cx="556" cy="76" r="4" class="trend-point tg"></circle>
+        <circle cx="638" cy="56" r="4" class="trend-point tg"></circle>
 
         <circle cx="64" cy="170" r="4" class="trend-point assembly"></circle>
-        <circle cx="136" cy="160" r="4" class="trend-point assembly"></circle>
-        <circle cx="208" cy="148" r="4" class="trend-point assembly"></circle>
-        <circle cx="280" cy="136" r="4" class="trend-point assembly"></circle>
-        <circle cx="352" cy="124" r="4" class="trend-point assembly"></circle>
-        <circle cx="424" cy="112" r="4" class="trend-point assembly"></circle>
-        <circle cx="496" cy="96" r="4" class="trend-point assembly"></circle>
-        <circle cx="568" cy="84" r="4" class="trend-point assembly"></circle>
+        <circle cx="146" cy="160" r="4" class="trend-point assembly"></circle>
+        <circle cx="228" cy="148" r="4" class="trend-point assembly"></circle>
+        <circle cx="310" cy="136" r="4" class="trend-point assembly"></circle>
+        <circle cx="392" cy="124" r="4" class="trend-point assembly"></circle>
+        <circle cx="474" cy="112" r="4" class="trend-point assembly"></circle>
+        <circle cx="556" cy="96" r="4" class="trend-point assembly"></circle>
+        <circle cx="638" cy="84" r="4" class="trend-point assembly"></circle>
 
         <circle cx="64" cy="172" r="4" class="trend-point wire"></circle>
-        <circle cx="136" cy="164" r="4" class="trend-point wire"></circle>
-        <circle cx="208" cy="154" r="4" class="trend-point wire"></circle>
-        <circle cx="280" cy="142" r="4" class="trend-point wire"></circle>
-        <circle cx="352" cy="130" r="4" class="trend-point wire"></circle>
-        <circle cx="424" cy="120" r="4" class="trend-point wire"></circle>
-        <circle cx="496" cy="108" r="4" class="trend-point wire"></circle>
-        <circle cx="568" cy="96" r="4" class="trend-point wire"></circle>
+        <circle cx="146" cy="164" r="4" class="trend-point wire"></circle>
+        <circle cx="228" cy="154" r="4" class="trend-point wire"></circle>
+        <circle cx="310" cy="142" r="4" class="trend-point wire"></circle>
+        <circle cx="392" cy="130" r="4" class="trend-point wire"></circle>
+        <circle cx="474" cy="120" r="4" class="trend-point wire"></circle>
+        <circle cx="556" cy="108" r="4" class="trend-point wire"></circle>
+        <circle cx="638" cy="96" r="4" class="trend-point wire"></circle>
+
+        <circle cx="64" cy="174" r="4" class="trend-point forming"></circle>
+        <circle cx="146" cy="168" r="4" class="trend-point forming"></circle>
+        <circle cx="228" cy="160" r="4" class="trend-point forming"></circle>
+        <circle cx="310" cy="150" r="4" class="trend-point forming"></circle>
+        <circle cx="392" cy="140" r="4" class="trend-point forming"></circle>
+        <circle cx="474" cy="132" r="4" class="trend-point forming"></circle>
+        <circle cx="556" cy="122" r="4" class="trend-point forming"></circle>
+        <circle cx="638" cy="112" r="4" class="trend-point forming"></circle>
 
         <text x="64" y="202" text-anchor="middle" class="trend-x-label">08시</text>
-        <text x="136" y="202" text-anchor="middle" class="trend-x-label">09시</text>
-        <text x="208" y="202" text-anchor="middle" class="trend-x-label">10시</text>
-        <text x="280" y="202" text-anchor="middle" class="trend-x-label">11시</text>
-        <text x="352" y="202" text-anchor="middle" class="trend-x-label">12시</text>
-        <text x="424" y="202" text-anchor="middle" class="trend-x-label">13시</text>
-        <text x="496" y="202" text-anchor="middle" class="trend-x-label">14시</text>
-        <text x="568" y="202" text-anchor="middle" class="trend-x-label">15시</text>
+        <text x="146" y="202" text-anchor="middle" class="trend-x-label">09시</text>
+        <text x="228" y="202" text-anchor="middle" class="trend-x-label">10시</text>
+        <text x="310" y="202" text-anchor="middle" class="trend-x-label">11시</text>
+        <text x="392" y="202" text-anchor="middle" class="trend-x-label">12시</text>
+        <text x="474" y="202" text-anchor="middle" class="trend-x-label">13시</text>
+        <text x="556" y="202" text-anchor="middle" class="trend-x-label">14시</text>
+        <text x="638" y="202" text-anchor="middle" class="trend-x-label">15시</text>
       </svg>
     </div>
   `;
@@ -408,8 +450,8 @@ function renderDashboard() {
   return `
     <div class="stack">
       <div class="metric-grid">
-        ${metricCard("금일 총 생산량", "2,847", "전일 대비 +12.4%", "success")}
-        ${metricCard("목표 달성률", "94%", "금일 목표 3,028", "success")}
+        ${metricCard("금일 총 생산량", "2,847t", "전일 대비 +12.4%", "success")}
+        ${metricCard("목표 달성률", "94%", "금일 목표 3,028t", "success")}
         ${metricCard("부적합 건수", "3건", "전일 대비 1건 증가", "warning")}
         ${metricCard("설비 정지 (30분+)", "1건", "TG-03 설비 알림 확인 필요", "danger")}
       </div>
@@ -419,7 +461,7 @@ function renderDashboard() {
           <section class="panel">
             <div class="panel-title">
               <h3>시간대별 생산량 추이</h3>
-              <span class="panel-note">금일 기준 공정별 누계</span>
+              <span class="panel-note">금일 기준 4개 공정 누계</span>
             </div>
             ${trendChart()}
           </section>
@@ -456,7 +498,6 @@ function renderDashboard() {
         <section class="panel">
           <div class="panel-title">
             <h3>공정별 목표 달성률</h3>
-            <span class="card-badge">프로그레스 바</span>
           </div>
           <div class="progress-list">
             <div class="progress-item">
@@ -535,10 +576,10 @@ function renderBoard() {
   return `
     <div class="stack">
       <div class="metric-grid">
-        ${metricCard("신선", "318", "금일 생산량", "")}
-        ${metricCard("TG", "274", "실시간 집계", "")}
-        ${metricCard("포밍", "296", "완료 수량", "")}
-        ${metricCard("조립", "244", "패킹 완료", "")}
+        ${metricCard("신선", "318t", "금일 생산량", "")}
+        ${metricCard("TG", "274t", "실시간 집계", "")}
+        ${metricCard("포밍", "296t", "완료 수량", "")}
+        ${metricCard("조립", "244t", "패킹 완료", "")}
       </div>
       <section class="panel">
         <div class="panel-title">
@@ -556,22 +597,79 @@ function renderBoard() {
   `;
 }
 
-function renderResults() {
+function renderResults(params = new URLSearchParams()) {
+  const period = params.get("period") || "day";
+  const process = params.get("process") || "all";
+  const periodMap = {
+    day: {
+      total: "1,284t",
+      target: "목표 달성률 92%",
+      tg: "274t",
+      correction: "12건",
+      rows: [
+        ["2026-04-14 08:00", "TG", "TG-01", "46t", "접점 신호", '<span class="pill">자동</span>'],
+        ["2026-04-14 09:00", "포밍", "FM-02", "61t", "OPC", '<span class="pill">자동</span>'],
+        ["2026-04-14 10:00", "조립", "조립 3라인", "44t", "수동 입력", '<span class="pill warning">보정</span>'],
+        ["2026-04-14 11:00", "신선", "DR-01", "72t", "OPC", '<span class="pill">자동</span>'],
+      ],
+    },
+    week: {
+      total: "6,842t",
+      target: "목표 달성률 96%",
+      tg: "1,524t",
+      correction: "21건",
+      rows: [
+        ["2026-04-08", "TG", "TG-01", "318t", "접점 신호", '<span class="pill">자동</span>'],
+        ["2026-04-09", "포밍", "FM-02", "402t", "OPC", '<span class="pill">자동</span>'],
+        ["2026-04-10", "조립", "조립 2라인", "356t", "수동 입력", '<span class="pill warning">보정</span>'],
+        ["2026-04-11", "신선", "DR-01", "441t", "OPC", '<span class="pill">자동</span>'],
+      ],
+    },
+    month: {
+      total: "27,410t",
+      target: "목표 달성률 91%",
+      tg: "6,120t",
+      correction: "68건",
+      rows: [
+        ["2026-04-01", "TG", "TG-01", "1,284t", "접점 신호", '<span class="pill">자동</span>'],
+        ["2026-04-04", "포밍", "FM-02", "1,462t", "OPC", '<span class="pill">자동</span>'],
+        ["2026-04-07", "조립", "조립 3라인", "1,208t", "수동 입력", '<span class="pill warning">보정</span>'],
+        ["2026-04-10", "신선", "DR-01", "1,534t", "OPC", '<span class="pill">자동</span>'],
+      ],
+    },
+  };
+  const processMap = {
+    all: { label: "전체", total: null, tg: null, correction: null },
+    wire: { label: "신선", total: "324t", tg: "신선 324t", correction: "보정 2건" },
+    tg: { label: "TG", total: "274t", tg: "TG 274t", correction: "보정 5건" },
+    forming: { label: "포밍", total: "296t", tg: "포밍 296t", correction: "보정 3건" },
+    assembly: { label: "조립", total: "244t", tg: "조립 244t", correction: "보정 2건" },
+  };
+  const scenario = structuredClone(periodMap[period] || periodMap.day);
+  if (process !== "all") {
+    const targetProcess = process === "wire" ? "신선" : process === "tg" ? "TG" : process === "forming" ? "포밍" : "조립";
+    scenario.rows = scenario.rows.filter((row) => row[1] === targetProcess);
+    scenario.total = processMap[process].total || scenario.total;
+    scenario.tg = processMap[process].tg || scenario.tg;
+    scenario.correction = processMap[process].correction || scenario.correction;
+    scenario.target = `${processMap[process].label} 기준 목표 달성률`;
+  }
   return `
     <div class="stack">
       <div class="filter-row">
-        <div class="filter-chip active">금일</div>
-        <div class="filter-chip">주간</div>
-        <div class="filter-chip">월간</div>
-        <div class="filter-chip">신선</div>
-        <div class="filter-chip">TG</div>
-        <div class="filter-chip">포밍</div>
-        <div class="filter-chip">조립</div>
+        ${filterChipLink("금일", "/production/results", { period: "day", process }, period === "day")}
+        ${filterChipLink("주간", "/production/results", { period: "week", process }, period === "week")}
+        ${filterChipLink("월간", "/production/results", { period: "month", process }, period === "month")}
+        ${filterChipLink("전체", "/production/results", { period, process: "all" }, process === "all")}
+        ${filterChipLink("신선", "/production/results", { period, process: "wire" }, process === "wire")}
+        ${filterChipLink("TG", "/production/results", { period, process: "tg" }, process === "tg")}
+        ${filterChipLink("포밍", "/production/results", { period, process: "forming" }, process === "forming")}
+        ${filterChipLink("조립", "/production/results", { period, process: "assembly" }, process === "assembly")}
       </div>
       <div class="metric-grid">
-        ${metricCard("총 생산량", "1,284㎡", "목표 달성률 92%", "")}
-        ${metricCard("TG 집계", "274㎡", "접점 신호 수집", "")}
-        ${metricCard("수동 보정", "12건", "자동 수집 예외", "warning")}
+        ${metricCard("총 생산량", scenario.total, scenario.target, "")}
+        ${metricCard("핵심 공정 집계", scenario.tg, process === "tg" ? "접점 신호 수집" : "공정별 집계", "")}
+        ${metricCard("수동 보정", scenario.correction, "자동 수집 예외", "warning")}
         ${metricCard("보고 자동화", "완료", "일마감 기준 생성", "success")}
       </div>
       <section class="table-card">
@@ -591,10 +689,11 @@ function renderResults() {
             </tr>
           </thead>
           <tbody>
-            <tr><td>2026-04-14 08:00</td><td>TG</td><td>TG-01</td><td>46㎡</td><td>접점 신호</td><td><span class="pill">자동</span></td></tr>
-            <tr><td>2026-04-14 09:00</td><td>포밍</td><td>FM-02</td><td>61㎡</td><td>OPC</td><td><span class="pill">자동</span></td></tr>
-            <tr><td>2026-04-14 10:00</td><td>조립</td><td>조립 3라인</td><td>44㎡</td><td>수동 입력</td><td><span class="pill warning">보정</span></td></tr>
-            <tr><td>2026-04-14 11:00</td><td>신선</td><td>DR-01</td><td>72㎡</td><td>OPC</td><td><span class="pill">자동</span></td></tr>
+            ${scenario.rows
+              .map(
+                (row) => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td></tr>`
+              )
+              .join("")}
           </tbody>
         </table>
       </section>
@@ -602,14 +701,23 @@ function renderResults() {
   `;
 }
 
-function renderProgress() {
+function renderProgress(params = new URLSearchParams()) {
+  const status = params.get("status") || "all";
+  const allRows = [
+    { workId: "LX-20948", site: "삼성 A현장", flow: "신선 · TG · 포밍 · 조립", pill: '<span class="pill success">조립 완료</span>', status: "done" },
+    { workId: "LX-20952", site: "현대 B현장", flow: "신선 · TG · 포밍", pill: '<span class="pill warning">포밍 진행중</span>', status: "progress" },
+    { workId: "LX-21004", site: "삼성 C현장", flow: "신선 · TG", pill: '<span class="pill danger">TG 보정 필요</span>', status: "correction" },
+    { workId: "LX-21102", site: "음성 물류센터", flow: "신선", pill: '<span class="pill">대기</span>', status: "all" },
+  ];
+  const filteredRows = status === "all" ? allRows : allRows.filter((row) => row.status === status);
+  const selected = filteredRows[0] || allRows[0];
   return `
     <div class="stack">
       <div class="filter-row">
-        <div class="filter-chip active">전체</div>
-        <div class="filter-chip">진행중</div>
-        <div class="filter-chip">완료</div>
-        <div class="filter-chip">보정 필요</div>
+        ${filterChipLink("전체", "/production/progress", { status: "all" }, status === "all")}
+        ${filterChipLink("진행중", "/production/progress", { status: "progress" }, status === "progress")}
+        ${filterChipLink("완료", "/production/progress", { status: "done" }, status === "done")}
+        ${filterChipLink("보정 필요", "/production/progress", { status: "correction" }, status === "correction")}
       </div>
       <div class="split-layout">
         <section class="table-card">
@@ -627,10 +735,12 @@ function renderProgress() {
               </tr>
             </thead>
             <tbody>
-              <tr><td class="mono">LX-20948</td><td>삼성 A현장</td><td>신선 · TG · 포밍 · 조립</td><td><span class="pill success">조립 완료</span></td></tr>
-              <tr><td class="mono">LX-20952</td><td>현대 B현장</td><td>신선 · TG · 포밍</td><td><span class="pill warning">포밍 진행중</span></td></tr>
-              <tr><td class="mono">LX-21004</td><td>삼성 C현장</td><td>신선 · TG</td><td><span class="pill danger">TG 보정 필요</span></td></tr>
-              <tr><td class="mono">LX-21102</td><td>음성 물류센터</td><td>신선</td><td><span class="pill">대기</span></td></tr>
+              ${filteredRows
+                .map(
+                  (row) =>
+                    `<tr><td class="mono">${row.workId}</td><td>${row.site}</td><td>${row.flow}</td><td>${row.pill}</td></tr>`
+                )
+                .join("")}
             </tbody>
           </table>
         </section>
@@ -639,17 +749,25 @@ function renderProgress() {
           <div class="detail-block">
             <h4>선택 건 상세</h4>
             <div class="kv">
-              <div class="kv-row"><span>제작번호</span><strong>LX-21004</strong></div>
-              <div class="kv-row"><span>현장명</span><strong>삼성 C현장</strong></div>
-              <div class="kv-row"><span>현재 공정</span><strong>TG</strong></div>
-              <div class="kv-row"><span>마지막 실적</span><strong>2026-04-14 11:20</strong></div>
+              <div class="kv-row"><span>제작번호</span><strong>${selected.workId}</strong></div>
+              <div class="kv-row"><span>현장명</span><strong>${selected.site}</strong></div>
+              <div class="kv-row"><span>현재 공정</span><strong>${status === "done" ? "조립" : status === "progress" ? "포밍" : status === "correction" ? "TG" : "신선"}</strong></div>
+              <div class="kv-row"><span>마지막 실적</span><strong>${status === "done" ? "2026-04-14 15:20" : status === "progress" ? "2026-04-14 13:05" : status === "correction" ? "2026-04-14 11:20" : "2026-04-14 08:32"}</strong></div>
             </div>
           </div>
           <div class="detail-block">
             <h4>공정 타임라인</h4>
             <div class="timeline">
-              <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">신선 완료</div><div class="timeline-sub">실적 74㎡ 반영</div></div><div class="timeline-time">08:32</div></div>
-              <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">TG 진행중</div><div class="timeline-sub">접점 수집 지연, 보정 필요</div></div><div class="timeline-time">11:20</div></div>
+              <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">신선 완료</div><div class="timeline-sub">실적 74t 반영</div></div><div class="timeline-time">08:32</div></div>
+              ${
+                status === "done"
+                  ? '<div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">TG 완료</div><div class="timeline-sub">접점 수집 정상 반영</div></div><div class="timeline-time">11:20</div></div><div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">포밍 완료</div><div class="timeline-sub">형상 검수 통과</div></div><div class="timeline-time">13:05</div></div><div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">조립 완료</div><div class="timeline-sub">패킹 번호 생성</div></div><div class="timeline-time">15:20</div></div>'
+                  : status === "progress"
+                    ? '<div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">TG 완료</div><div class="timeline-sub">접점 수집 정상 반영</div></div><div class="timeline-time">11:20</div></div><div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">포밍 진행중</div><div class="timeline-sub">형상 가공 진행</div></div><div class="timeline-time">13:05</div></div>'
+                    : status === "correction"
+                      ? '<div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">TG 진행중</div><div class="timeline-sub">접점 수집 지연, 보정 필요</div></div><div class="timeline-time">11:20</div></div>'
+                      : '<div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">신선 진행중</div><div class="timeline-sub">초기 생산 대기</div></div><div class="timeline-time">08:32</div></div>'
+              }
             </div>
           </div>
           <div class="btn-row">
@@ -731,10 +849,6 @@ function renderQuality(mode) {
   const isRegister = mode === "register";
   return `
     <div class="stack">
-      <div class="filter-row">
-        <div class="tab-chip ${isRegister ? "active" : ""}">부적합 등록</div>
-        <div class="tab-chip ${!isRegister ? "active" : ""}">부적합 분석</div>
-      </div>
       ${
         isRegister
           ? `
@@ -852,12 +966,10 @@ function renderInventory(mode) {
   return `
     <div class="stack">
       <div class="filter-row">
-        <div class="tab-chip ${isYard ? "active" : ""}">야적장 위치</div>
-        <div class="tab-chip ${!isYard ? "active" : ""}">출하 현황</div>
-        <div class="filter-chip">현장명</div>
-        <div class="filter-chip">슬리퍼</div>
-        <div class="filter-chip">패킹번호</div>
-        <div class="filter-chip">위치 미등록</div>
+        ${filterField("현장명", "현대 B현장")}
+        ${filterField("슬리퍼", "SL-15")}
+        ${filterField("패킹번호", "PK-22024")}
+        ${filterField("상태", "위치 미등록")}
       </div>
       <div class="split-layout">
         <section class="table-card">
@@ -925,8 +1037,8 @@ function renderTrace() {
         </div>
         <div class="timeline">
           <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">원자재 입고</div><div class="timeline-sub">LOT-20260401-01 / 영광선재 / 420kg</div></div><div class="timeline-time">04-01</div></div>
-          <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">신선 공정</div><div class="timeline-sub">DR-01 / 실적 74㎡</div></div><div class="timeline-time">08:32</div></div>
-          <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">TG 공정</div><div class="timeline-sub">접점 수집 / 46㎡</div></div><div class="timeline-time">11:20</div></div>
+          <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">신선 공정</div><div class="timeline-sub">DR-01 / 실적 74t</div></div><div class="timeline-time">08:32</div></div>
+          <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">TG 공정</div><div class="timeline-sub">접점 수집 / 46t</div></div><div class="timeline-time">11:20</div></div>
           <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">포밍 공정</div><div class="timeline-sub">형상 오차 1건 등록</div></div><div class="timeline-time">13:05</div></div>
           <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">조립/야적</div><div class="timeline-sub">PK-22024 / 위치 미등록</div></div><div class="timeline-time">진행중</div></div>
         </div>
@@ -950,11 +1062,9 @@ function renderFacility(mode) {
   return `
     <div class="stack">
       <div class="filter-row">
-        <div class="tab-chip ${isStatus ? "active" : ""}">설비 상태</div>
-        <div class="tab-chip ${!isStatus ? "active" : ""}">알림/안돈</div>
-        <div class="filter-chip">TG</div>
-        <div class="filter-chip">포밍</div>
-        <div class="filter-chip">조립</div>
+        ${filterField("공정", isStatus ? "TG 중심" : "전체 알림")}
+        ${filterField("수집 방식", isStatus ? "접점 + OPC" : "안돈/이상")}
+        ${filterField("조회 기준", isStatus ? "가동/정지 상태" : "미확인 우선")}
       </div>
       ${
         isStatus
@@ -980,7 +1090,7 @@ function renderFacility(mode) {
                 <div class="kv">
                   <div class="kv-row"><span>TG</span><strong>접점 신호</strong></div>
                   <div class="kv-row"><span>신선</span><strong>OPC</strong></div>
-                  <div class="kv-row)<span>포밍</span><strong>OPC</strong></div>
+                  <div class="kv-row"><span>포밍</span><strong>OPC</strong></div>
                   <div class="kv-row"><span>조립</span><strong>OPC</strong></div>
                 </div>
                 <div class="detail-block inline">
@@ -1011,7 +1121,7 @@ function renderFacility(mode) {
                   <h4>대응 메모</h4>
                   <div class="kv">
                     <div class="kv-row"><span>알림 대상</span><strong>생산관리자 / 공무팀</strong></div>
-                    <div class="kv-row)<span>1차 범위</span><strong>안돈 및 이상 알림</strong></div>
+                    <div class="kv-row"><span>1차 범위</span><strong>안돈 및 이상 알림</strong></div>
                     <div class="kv-row"><span>2차 범위</span><strong>MTBF, 정지 이력 고도화</strong></div>
                   </div>
                 </div>

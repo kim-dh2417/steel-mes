@@ -165,12 +165,11 @@ textarea {
   align-items: flex-end;
   gap: 24px;
   padding: 26px 32px 18px;
-  background: rgba(244, 246, 251, 0.92);
+  background: var(--bg);
   border-bottom: 1px solid var(--surface-border);
   position: sticky;
   top: 0;
   z-index: 20;
-  backdrop-filter: blur(10px);
 }
 
 .breadcrumb {
@@ -192,6 +191,19 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.topbar-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.04em;
 }
 
 .search-box {
@@ -317,7 +329,7 @@ textarea {
 
 .dashboard-top-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.08fr) minmax(248px, 0.58fr);
+  grid-template-columns: minmax(0, 2.22fr) minmax(228px, 0.5fr);
   gap: 16px;
   align-items: start;
 }
@@ -439,7 +451,7 @@ textarea {
 
 .trend-svg {
   width: 100%;
-  height: 228px;
+  height: 252px;
 }
 
 .compare-svg {
@@ -851,14 +863,38 @@ textarea {
   margin-bottom: 16px;
 }
 
+.filter-field {
+  min-width: 132px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+}
+
+.filter-field-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.filter-field-value {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
 .filter-chip,
 .tab-chip {
+  display: inline-flex;
+  align-items: center;
   padding: 9px 12px;
   background: var(--surface);
   border: 1px solid var(--surface-border);
   font-size: 12px;
   font-weight: 700;
   color: var(--muted);
+  text-decoration: none;
 }
 
 .filter-chip.active,
