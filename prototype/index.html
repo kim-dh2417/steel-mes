@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VICON</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <img
+            class="brand-logo"
+            src="https://cdn.imweb.me/upload/S202211296a245b31c2e07/75050230ade41.png"
+            alt="VICON"
+          />
+          <div class="brand-subtitle">데크 3공장</div>
+        </div>
+        <nav id="sidebar-nav" class="sidebar-nav"></nav>
+        <div class="sidebar-footer">
+          <div class="user-badge">
+            <div class="user-avatar">VC</div>
+            <div>
+              <div class="user-name">생산 관리자</div>
+              <div class="user-role">PROD_MANAGER</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-shell">
+        <header class="topbar">
+          <div>
+            <div id="breadcrumb" class="breadcrumb"></div>
+            <h1 id="page-title" class="page-title"></h1>
+          </div>
+          <div id="topbar-actions" class="topbar-actions"></div>
+        </header>
+
+        <main id="app" class="page-canvas"></main>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

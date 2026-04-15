@@ -1,0 +1,11 @@
+.DS_Store
+**/.DS_Store
+
+# local runtime
+node_modules/
+.vercel/
+dist/
+build/
+
+# logs
+*.log
