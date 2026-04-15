@@ -272,96 +272,258 @@ function statusCard(name, state, temp, pressure, efficiency, tone = "") {
   `;
 }
 
+function equipmentCard(name, state, signal, score, tone = "") {
+  return `
+    <div class="equipment-card ${tone}">
+      <div class="equipment-head">
+        <div class="equipment-name">${name}</div>
+        <div class="equipment-score">${score}</div>
+      </div>
+      <div class="equipment-body">
+        <span class="equipment-dot ${tone || "normal"}"></span>
+        <div class="equipment-text">
+          <div class="equipment-state">${state}</div>
+          <div class="equipment-signal">${signal}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function trendChart() {
+  return `
+    <div class="trend-chart">
+      <div class="trend-legend">
+        <div class="legend-item"><span class="legend-swatch tg"></span><span>TG</span></div>
+        <div class="legend-item"><span class="legend-swatch assembly"></span><span>조립</span></div>
+        <div class="legend-item"><span class="legend-swatch wire"></span><span>신선</span></div>
+      </div>
+      <svg viewBox="0 0 640 220" class="trend-svg" role="img" aria-label="시간대별 생산량 추이">
+        <line x1="44" y1="22" x2="44" y2="176" class="trend-axis"></line>
+        <line x1="44" y1="176" x2="604" y2="176" class="trend-axis"></line>
+
+        <line x1="44" y1="48" x2="604" y2="48" class="trend-grid"></line>
+        <line x1="44" y1="80" x2="604" y2="80" class="trend-grid"></line>
+        <line x1="44" y1="112" x2="604" y2="112" class="trend-grid"></line>
+        <line x1="44" y1="144" x2="604" y2="144" class="trend-grid"></line>
+
+        <text x="10" y="52" class="trend-y-label">1200</text>
+        <text x="16" y="84" class="trend-y-label">900</text>
+        <text x="16" y="116" class="trend-y-label">600</text>
+        <text x="16" y="148" class="trend-y-label">300</text>
+
+        <polyline points="64,166 136,154 208,138 280,122 352,108 424,92 496,76 568,56" class="trend-line tg"></polyline>
+        <polyline points="64,170 136,160 208,148 280,136 352,124 424,112 496,96 568,84" class="trend-line assembly"></polyline>
+        <polyline points="64,172 136,164 208,154 280,142 352,130 424,120 496,108 568,96" class="trend-line wire"></polyline>
+
+        <circle cx="64" cy="166" r="4" class="trend-point tg"></circle>
+        <circle cx="136" cy="154" r="4" class="trend-point tg"></circle>
+        <circle cx="208" cy="138" r="4" class="trend-point tg"></circle>
+        <circle cx="280" cy="122" r="4" class="trend-point tg"></circle>
+        <circle cx="352" cy="108" r="4" class="trend-point tg"></circle>
+        <circle cx="424" cy="92" r="4" class="trend-point tg"></circle>
+        <circle cx="496" cy="76" r="4" class="trend-point tg"></circle>
+        <circle cx="568" cy="56" r="4" class="trend-point tg"></circle>
+
+        <circle cx="64" cy="170" r="4" class="trend-point assembly"></circle>
+        <circle cx="136" cy="160" r="4" class="trend-point assembly"></circle>
+        <circle cx="208" cy="148" r="4" class="trend-point assembly"></circle>
+        <circle cx="280" cy="136" r="4" class="trend-point assembly"></circle>
+        <circle cx="352" cy="124" r="4" class="trend-point assembly"></circle>
+        <circle cx="424" cy="112" r="4" class="trend-point assembly"></circle>
+        <circle cx="496" cy="96" r="4" class="trend-point assembly"></circle>
+        <circle cx="568" cy="84" r="4" class="trend-point assembly"></circle>
+
+        <circle cx="64" cy="172" r="4" class="trend-point wire"></circle>
+        <circle cx="136" cy="164" r="4" class="trend-point wire"></circle>
+        <circle cx="208" cy="154" r="4" class="trend-point wire"></circle>
+        <circle cx="280" cy="142" r="4" class="trend-point wire"></circle>
+        <circle cx="352" cy="130" r="4" class="trend-point wire"></circle>
+        <circle cx="424" cy="120" r="4" class="trend-point wire"></circle>
+        <circle cx="496" cy="108" r="4" class="trend-point wire"></circle>
+        <circle cx="568" cy="96" r="4" class="trend-point wire"></circle>
+
+        <text x="64" y="202" text-anchor="middle" class="trend-x-label">08시</text>
+        <text x="136" y="202" text-anchor="middle" class="trend-x-label">09시</text>
+        <text x="208" y="202" text-anchor="middle" class="trend-x-label">10시</text>
+        <text x="280" y="202" text-anchor="middle" class="trend-x-label">11시</text>
+        <text x="352" y="202" text-anchor="middle" class="trend-x-label">12시</text>
+        <text x="424" y="202" text-anchor="middle" class="trend-x-label">13시</text>
+        <text x="496" y="202" text-anchor="middle" class="trend-x-label">14시</text>
+        <text x="568" y="202" text-anchor="middle" class="trend-x-label">15시</text>
+      </svg>
+    </div>
+  `;
+}
+
+function productionCompareChart() {
+  return `
+    <div class="compare-chart">
+      <div class="compare-toolbar">
+        <div class="compare-legend">
+          <div class="legend-item"><span class="legend-swatch compare-today"></span><span>오늘</span></div>
+          <div class="legend-item"><span class="legend-swatch compare-yesterday"></span><span>어제</span></div>
+        </div>
+        <div class="tab-row">
+          <div class="tab-chip active">전일</div>
+          <div class="tab-chip">전주</div>
+        </div>
+      </div>
+      <svg viewBox="0 0 720 220" class="compare-svg" role="img" aria-label="공정별 생산량 비교">
+        <line x1="46" y1="24" x2="46" y2="178" class="trend-axis"></line>
+        <line x1="46" y1="178" x2="686" y2="178" class="trend-axis"></line>
+
+        <line x1="46" y1="48" x2="686" y2="48" class="trend-grid"></line>
+        <line x1="46" y1="80" x2="686" y2="80" class="trend-grid"></line>
+        <line x1="46" y1="112" x2="686" y2="112" class="trend-grid"></line>
+        <line x1="46" y1="144" x2="686" y2="144" class="trend-grid"></line>
+
+        <text x="12" y="52" class="trend-y-label">1200</text>
+        <text x="18" y="84" class="trend-y-label">900</text>
+        <text x="18" y="116" class="trend-y-label">600</text>
+        <text x="18" y="148" class="trend-y-label">300</text>
+
+        <rect x="72" y="70" width="54" height="108" rx="6" class="compare-bar today"></rect>
+        <rect x="134" y="82" width="54" height="96" rx="6" class="compare-bar yesterday"></rect>
+
+        <rect x="236" y="38" width="54" height="140" rx="6" class="compare-bar today"></rect>
+        <rect x="298" y="56" width="54" height="122" rx="6" class="compare-bar yesterday"></rect>
+
+        <rect x="400" y="112" width="54" height="66" rx="6" class="compare-bar today"></rect>
+        <rect x="462" y="98" width="54" height="80" rx="6" class="compare-bar yesterday"></rect>
+
+        <rect x="564" y="132" width="54" height="46" rx="6" class="compare-bar today"></rect>
+        <rect x="626" y="144" width="54" height="34" rx="6" class="compare-bar yesterday"></rect>
+
+        <text x="130" y="206" text-anchor="middle" class="trend-x-label">신선</text>
+        <text x="294" y="206" text-anchor="middle" class="trend-x-label">TG</text>
+        <text x="458" y="206" text-anchor="middle" class="trend-x-label">포밍</text>
+        <text x="622" y="206" text-anchor="middle" class="trend-x-label">조립(외주)</text>
+      </svg>
+    </div>
+  `;
+}
+
 function renderDashboard() {
   return `
     <div class="stack">
       <div class="metric-grid">
-        ${metricCard("금일 생산량", "1,284", "전일 대비 +12.4%", "success")}
-        ${metricCard("부적합 건수", "04", "품질팀 확인 필요", "warning")}
-        ${metricCard("중요 알림", "03", "TG-04 라인 영향", "danger")}
-        ${metricCard("출하 예정", "18", "오늘 출하 대기 6건", "")}
+        ${metricCard("금일 총 생산량", "2,847", "전일 대비 +12.4%", "success")}
+        ${metricCard("목표 달성률", "94%", "금일 목표 3,028", "success")}
+        ${metricCard("부적합 건수", "3건", "전일 대비 1건 증가", "warning")}
+        ${metricCard("설비 정지 (30분+)", "1건", "TG-03 설비 알림 확인 필요", "danger")}
       </div>
 
-      <div class="dashboard-grid">
+      <div class="dashboard-top-layout">
+        <div class="dashboard-main-column">
+          <section class="panel">
+            <div class="panel-title">
+              <h3>시간대별 생산량 추이</h3>
+              <span class="panel-note">금일 기준 공정별 누계</span>
+            </div>
+            ${trendChart()}
+          </section>
+        </div>
+
+        <div class="dashboard-side-column">
+          <section class="panel equipment-panel">
+            <div class="panel-title">
+              <h3>주요 설비 상태</h3>
+              <span class="card-badge">7대</span>
+            </div>
+            <div class="equipment-grid">
+              ${equipmentCard("TG-01", "가동중", "가동중 · 점검신호", "98%", "normal")}
+              ${equipmentCard("TG-02", "가동중", "가동중 · 점검신호", "91%", "normal")}
+              ${equipmentCard("TG-03", "정지 42분", "정지 42분", "—", "danger")}
+              ${equipmentCard("TG-04", "가동중", "가동중 · 점검신호", "87%", "normal")}
+              ${equipmentCard("TG-05", "가동중", "가동중 · 점검신호", "95%", "normal")}
+              ${equipmentCard("TG-06", "대기", "대기", "—", "warning")}
+              ${equipmentCard("TG-07", "가동중", "가동중 · 점검신호", "93%", "normal")}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="dashboard-bottom-layout">
         <section class="panel">
           <div class="panel-title">
-            <h3>공정별 생산 실적</h3>
-            <span class="panel-note">TG / 조립 실시간 중점 표시</span>
+            <h3>공정별 생산량 비교</h3>
+            <span class="panel-note">오늘/어제 기준 비교</span>
           </div>
-          <div class="chart-bars">
-            ${[
-              { label: "신선", height: 148, accent: false },
-              { label: "TG", height: 204, accent: true },
-              { label: "포밍", height: 166, accent: false },
-              { label: "조립", height: 188, accent: true }
-            ]
-              .map(
-                ({ label, height, accent }) => `
-                  <div class="bar-group">
-                    <div class="bar ${accent ? "accent" : ""}" style="height:${height}px"></div>
-                    <div class="bar-label">${label}</div>
-                  </div>
-                `
-              )
-              .join("")}
-          </div>
+          ${productionCompareChart()}
         </section>
 
         <section class="panel">
           <div class="panel-title">
-            <h3>중요 알림 피드</h3>
-            <span class="pill danger">LIVE</span>
+            <h3>공정별 목표 달성률</h3>
+            <span class="card-badge">프로그레스 바</span>
+          </div>
+          <div class="progress-list">
+            <div class="progress-item">
+              <div class="progress-head">
+                <span class="progress-name">신선</span>
+                <span class="progress-value">840 / 900</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill wire" style="width:93%"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-head">
+                <span class="progress-name">TG</span>
+                <span class="progress-value">1,124 / 1,200</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill tg" style="width:94%"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-head">
+                <span class="progress-name">포밍</span>
+                <span class="progress-value">520 / 600</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill forming" style="width:87%"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-head">
+                <span class="progress-name">조립 (외주)</span>
+                <span class="progress-value">363 / 328</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill assembly" style="width:100%"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel recent-alerts-panel">
+          <div class="panel-title">
+            <h3>최근 알림</h3>
+            <span class="panel-note">4건</span>
           </div>
           <div class="alert-list">
             <div class="alert-item">
               <div class="alert-head">
-                <div class="alert-title">TG-04 윤활압력 저하</div>
-                <div class="alert-time">2분 전</div>
+                <div class="alert-title">TG-03 설비 이상 감지</div>
+                <div class="alert-time">14:23</div>
               </div>
-              <div class="alert-text">TG 핵심 설비 이상으로 생산 흐름 영향이 예상됩니다.</div>
+              <div class="alert-text">설비 이상 확인이 필요합니다.</div>
             </div>
             <div class="alert-item warning">
               <div class="alert-head">
-                <div class="alert-title">포밍 공정 부적합 증가</div>
-                <div class="alert-time">14분 전</div>
+                <div class="alert-title">부적합 등록 — 포밍 / 치수 불량</div>
+                <div class="alert-time">13:47</div>
               </div>
-              <div class="alert-text">부적합률이 기준 대비 상승하여 품질팀 확인이 필요합니다.</div>
+              <div class="alert-text">재작업 여부 확인이 필요합니다.</div>
             </div>
             <div class="alert-item info">
               <div class="alert-head">
-                <div class="alert-title">외주 조립 3건 지연</div>
-                <div class="alert-time">38분 전</div>
+                <div class="alert-title">원자재 LOT-0142 FIFO 경고</div>
+                <div class="alert-time">12:10</div>
               </div>
-              <div class="alert-text">외주 조립 완료 예정일이 지연되어 후속 야적 위치 등록에 영향이 있습니다.</div>
+              <div class="alert-text">이전 로트 먼저 사용이 필요합니다.</div>
             </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="dashboard-grid">
-        <section class="panel">
-          <div class="panel-title">
-            <h3>주요 설비 상태</h3>
-            <span class="panel-note">TG, 포밍, 조립 핵심 설비</span>
-          </div>
-          <div class="status-grid">
-            ${statusCard("TG-01", "가동 중", "182.4℃", "42.8bar", "94.2%", "")}
-            ${statusCard("TG-04", "정지", "0.0℃", "0.0bar", "0.0%", "danger")}
-            ${statusCard("포밍-02", "점검 중", "176.8℃", "39.2bar", "72.1%", "warning")}
-            ${statusCard("조립 3라인", "가동 중", "-", "-", "98.9%", "")}
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <h3>출하/야적장 요약</h3>
-            <span class="panel-note">현장명 + 슬리퍼 기준</span>
-          </div>
-          <div class="kv">
-            <div class="kv-row"><span>적재 대기</span><strong>12건</strong></div>
-            <div class="kv-row"><span>오늘 출하 예정</span><strong>18건</strong></div>
-            <div class="kv-row"><span>위치 미등록</span><strong>3건</strong></div>
-            <div class="kv-row"><span>외주 완료 후 미등록</span><strong>2건</strong></div>
+            <div class="alert-item info">
+              <div class="alert-head">
+                <div class="alert-title">외주 조립 W-2024-0681 지연</div>
+                <div class="alert-time">11:00</div>
+              </div>
+              <div class="alert-text">완료 예정 초과 상태입니다.</div>
+            </div>
           </div>
         </section>
       </div>
@@ -818,7 +980,7 @@ function renderFacility(mode) {
                 <div class="kv">
                   <div class="kv-row"><span>TG</span><strong>접점 신호</strong></div>
                   <div class="kv-row"><span>신선</span><strong>OPC</strong></div>
-                  <div class="kv-row"><span>포밍</span><strong>OPC</strong></div>
+                  <div class="kv-row)<span>포밍</span><strong>OPC</strong></div>
                   <div class="kv-row"><span>조립</span><strong>OPC</strong></div>
                 </div>
                 <div class="detail-block inline">
@@ -849,7 +1011,7 @@ function renderFacility(mode) {
                   <h4>대응 메모</h4>
                   <div class="kv">
                     <div class="kv-row"><span>알림 대상</span><strong>생산관리자 / 공무팀</strong></div>
-                    <div class="kv-row"><span>1차 범위</span><strong>안돈 및 이상 알림</strong></div>
+                    <div class="kv-row)<span>1차 범위</span><strong>안돈 및 이상 알림</strong></div>
                     <div class="kv-row"><span>2차 범위</span><strong>MTBF, 정지 이력 고도화</strong></div>
                   </div>
                 </div>
