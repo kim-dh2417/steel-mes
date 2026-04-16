@@ -7,9 +7,19 @@ const NAV_GROUPS = [
     ],
   },
   {
+    title: "공정별 실적",
+    items: [
+      { path: "/production/results", icon: "bar_chart", label: "실적 종합 현황" },
+      { path: "/production/trend", icon: "show_chart", label: "시간대별 생산 추이" },
+      { path: "/production/wire", icon: "cable", label: "신선 실적" },
+      { path: "/production/tg", icon: "bolt", label: "TG 실적" },
+      { path: "/production/forming", icon: "compress", label: "포밍 실적" },
+      { path: "/production/assembly", icon: "handyman", label: "조립 실적" },
+    ],
+  },
+  {
     title: "생산관리",
     items: [
-      { path: "/production/results", icon: "bar_chart", label: "생산실적 조회" },
       { path: "/production/progress", icon: "conversion_path", label: "공정 진행 조회" },
       { path: "/production/label", icon: "print", label: "라벨 출력" },
     ],
@@ -63,9 +73,34 @@ const ROUTES = {
     render: renderBoard,
   },
   "/production/results": {
-    title: "생산실적 조회",
-    breadcrumb: "생산관리 / 공정별 실적 집계와 보정 내역을 확인합니다",
+    title: "실적 종합 현황",
+    breadcrumb: "공정별 실적 / 신선·TG·포밍·조립 4개 공정 실적을 한 화면에서 비교합니다",
     render: renderResults,
+  },
+  "/production/trend": {
+    title: "시간대별 생산 추이",
+    breadcrumb: "공정별 실적 / 대시보드 추이 차트의 시간대별 원본 데이터를 공정별로 조회합니다",
+    render: renderTrend,
+  },
+  "/production/wire": {
+    title: "신선 실적",
+    breadcrumb: "공정별 실적 / 신선 설비 DR-01~04 가동 현황과 생산 실적을 확인합니다",
+    render: renderWire,
+  },
+  "/production/tg": {
+    title: "TG 실적",
+    breadcrumb: "공정별 실적 / TG 7대 설비 접점 수집 기반 생산 실적을 확인합니다",
+    render: renderTG,
+  },
+  "/production/forming": {
+    title: "포밍 실적",
+    breadcrumb: "공정별 실적 / 포밍 설비 FM-01~03 생산 실적과 부적합 연계를 확인합니다",
+    render: renderForming,
+  },
+  "/production/assembly": {
+    title: "조립 실적",
+    breadcrumb: "공정별 실적 / 조립 5개 라인 생산 실적과 패킹 완료 현황을 확인합니다",
+    render: renderAssembly,
   },
   "/production/progress": {
     title: "공정 진행 조회",
@@ -134,6 +169,505 @@ const navEl = document.getElementById("sidebar-nav");
 const titleEl = document.getElementById("page-title");
 const breadcrumbEl = document.getElementById("breadcrumb");
 const topbarActionsEl = document.getElementById("topbar-actions");
+
+// ── Modal ─────────────────────────────────────────────────────
+function showModal(title, bodyHtml, footerHtml = "") {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-body").innerHTML = bodyHtml;
+  document.getElementById("modal-footer").innerHTML = footerHtml;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal-overlay").classList.remove("open");
+}
+
+function navTo(path) {
+  closeModal();
+  location.hash = "#" + path;
+}
+
+function showSaveSuccessModal(title, message) {
+  showModal(
+    title,
+    `<div class="modal-success-icon">✓</div>
+     <div class="modal-success-title">${title}</div>
+     <div class="modal-success-sub">${message}</div>`,
+    `<button class="secondary-btn" onclick="closeModal()">확인</button>`
+  );
+}
+
+// ── Popup handlers ────────────────────────────────────────────
+function showLocationEditModal() {
+  showModal(
+    "위치 수정",
+    `<div class="kv">
+      <div class="kv-row"><span>패킹번호</span><strong>PK-22024</strong></div>
+      <div class="kv-row"><span>현재 위치</span><strong>미등록</strong></div>
+    </div>
+    <label class="modal-input-label">새 위치번호 입력</label>
+    <input type="text" placeholder="예: Y-A03-02" />`,
+    `<button class="outline-btn" onclick="closeModal()">취소</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('위치 수정 완료', 'PK-22024 위치 정보가 저장되었습니다.')">저장</button>`
+  );
+}
+
+function showShippingCompleteModal() {
+  showModal(
+    "출하 완료 처리",
+    `<div class="kv">
+      <div class="kv-row"><span>패킹번호</span><strong>PK-22024</strong></div>
+      <div class="kv-row"><span>현장명</span><strong>현대 B현장</strong></div>
+      <div class="kv-row"><span>슬리퍼</span><strong>SL-15</strong></div>
+    </div>
+    <p style="margin-top:16px; font-size:13px; color:var(--muted);">위 건을 출하 완료 처리하면 재고에서 자동 차감됩니다. 계속하시겠습니까?</p>`,
+    `<button class="outline-btn" onclick="closeModal()">취소</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('출하 완료', 'PK-22024 출하 완료 처리되었습니다.')">확인</button>`
+  );
+}
+
+function showStatusChangeModal() {
+  showModal(
+    "상태 변경",
+    `<div class="kv">
+      <div class="kv-row"><span>제작번호</span><strong>LX-22018</strong></div>
+      <div class="kv-row"><span>현재 상태</span><strong>지연</strong></div>
+    </div>
+    <label class="modal-input-label">변경할 상태 선택</label>
+    <select>
+      <option>지시 등록</option>
+      <option>작업 중</option>
+      <option selected>지연</option>
+      <option>완료</option>
+    </select>`,
+    `<button class="outline-btn" onclick="closeModal()">취소</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('상태 변경 완료', 'LX-22018 상태가 변경되었습니다.')">저장</button>`
+  );
+}
+
+function showDefectRegisterModal() {
+  showModal(
+    "등록 완료",
+    `<div class="modal-success-icon">✓</div>
+     <div class="modal-success-title">부적합 등록 완료</div>
+     <div class="modal-success-sub">포밍 / LX-21018 부적합이 등록되었습니다.<br>품질팀에 알림이 자동 발송되었습니다.</div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="navTo('/quality/analysis')">부적합 분석으로 이동</button>`
+  );
+}
+
+function showLabelPreviewModal() {
+  showModal(
+    "라벨 미리보기",
+    `<div style="border:1px solid var(--surface-border); padding:20px; background:#fafafa;">
+      <div style="font-size:16px; font-weight:800; margin-bottom:14px; letter-spacing:0.04em;">KS 라벨</div>
+      <div class="kv">
+        <div class="kv-row"><span>현장명</span><strong>현대 B현장</strong></div>
+        <div class="kv-row"><span>제작번호</span><strong>LX-21044</strong></div>
+        <div class="kv-row"><span>공정 / 설비</span><strong>신선 / DR-01</strong></div>
+        <div class="kv-row"><span>KS 규격</span><strong>KS-DK-004</strong></div>
+        <div class="kv-row"><span>로트번호</span><strong>LOT-20260414-03</strong></div>
+        <div class="kv-row"><span>생산일자</span><strong>2026-04-14</strong></div>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('라벨 출력 완료', '신선-PRN-01 프린터로 2매 출력 완료되었습니다.')">바로 출력</button>`
+  );
+}
+
+function showCertPreviewModal() {
+  showModal(
+    "성적서 미리보기",
+    `<div style="border:1px solid var(--surface-border); padding:20px; background:#fafafa;">
+      <div style="font-size:15px; font-weight:800; margin-bottom:14px; text-align:center; letter-spacing:0.04em;">품질 성적서</div>
+      <div class="kv">
+        <div class="kv-row"><span>현장명</span><strong>삼성 A현장</strong></div>
+        <div class="kv-row"><span>제작번호</span><strong>LX-20948</strong></div>
+        <div class="kv-row"><span>고객사</span><strong>삼성</strong></div>
+        <div class="kv-row"><span>발행일</span><strong>2026-04-14</strong></div>
+        <div class="kv-row"><span>생산 수량</span><strong>42.8t</strong></div>
+        <div class="kv-row"><span>부적합률</span><strong>0.82%</strong></div>
+        <div class="kv-row"><span>로트번호</span><strong>LOT-8812</strong></div>
+        <div class="kv-row"><span>KS 규격</span><strong>KS-DK-004</strong></div>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('PDF 발행 완료', '삼성 A현장 LX-20948 성적서가 PDF로 발행되었습니다.')">PDF 발행</button>`
+  );
+}
+
+// ── 공정별 비교 팝업 (오늘 vs 어제 맥락) ──────────────────────
+const COMPARE_DATA = {
+  wire: {
+    name: "신선", today: 318, yesterday: 295, unit: "t",
+    weekAvg: 309, diff: "+23t", diffPct: "+7.8%", trend: "up",
+    context: "DR-02 점검 정지에도 불구 DR-01/03/04 풀가동으로 전일 대비 초과 달성",
+    note: "이번 주 평균 대비 +2.9% 우수",
+    fill: "wire",
+  },
+  tg: {
+    name: "TG", today: 1124, yesterday: 1089, unit: "t",
+    weekAvg: 1080, diff: "+35t", diffPct: "+3.2%", trend: "up",
+    context: "TG-03 정지 42분(76t 손실) 불구 나머지 6대 정상 가동으로 전일 초과",
+    note: "TG-03 복구 시 목표 1,200t 달성 가능",
+    fill: "tg",
+  },
+  forming: {
+    name: "포밍", today: 520, yesterday: 548, unit: "t",
+    weekAvg: 541, diff: "-28t", diffPct: "-5.1%", trend: "down",
+    context: "PRESS-FM-04 과열 점검 정지(13:48~)로 전일 대비 감소",
+    note: "정지 지속 시 금일 목표(600t) 달성 어려울 수 있음",
+    fill: "forming",
+  },
+  assembly: {
+    name: "조립 (외주)", today: 363, yesterday: 328, unit: "t",
+    weekAvg: 344, diff: "+35t", diffPct: "+10.7%", trend: "up",
+    context: "외주 5라인 중 4라인 풀가동 + 외주 증산 요청 반영으로 목표 초과",
+    note: "패킹 완료 18건 / 야적 위치 등록 3건 대기 중",
+    fill: "assembly",
+  },
+};
+
+function showProcessComparePopup(procKey) {
+  const d = COMPARE_DATA[procKey];
+  const todayPct = Math.round(d.today / Math.max(d.today, d.yesterday) * 100);
+  const yestPct  = Math.round(d.yesterday / Math.max(d.today, d.yesterday) * 100);
+  const trendColor = d.trend === "up" ? "#3a8c32" : "var(--danger)";
+  const trendIcon  = d.trend === "up" ? "↑" : "↓";
+  showModal(
+    `${d.name} 생산량 비교`,
+    `<div style="display:grid;gap:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="padding:14px;background:var(--surface-soft);border:1px solid var(--surface-border);">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">오늘</div>
+          <div style="font-size:28px;font-weight:800;letter-spacing:-.03em;">${d.today.toLocaleString()}${d.unit}</div>
+        </div>
+        <div style="padding:14px;background:#f8f8f8;border:1px solid var(--surface-border);">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">어제</div>
+          <div style="font-size:28px;font-weight:800;letter-spacing:-.03em;color:var(--muted);">${d.yesterday.toLocaleString()}${d.unit}</div>
+        </div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--surface-border);background:var(--surface);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:12px;font-weight:700;color:var(--muted);">전일 대비</span>
+          <span style="font-size:18px;font-weight:800;color:${trendColor};">${trendIcon} ${d.diff} (${d.diffPct})</span>
+        </div>
+        <div class="progress-list" style="gap:8px;">
+          <div class="progress-item" style="gap:4px;">
+            <div class="progress-head"><span class="progress-name">오늘</span><span class="progress-value">${todayPct}%</span></div>
+            <div class="progress-track"><div class="progress-fill ${d.fill}" style="width:${todayPct}%"></div></div>
+          </div>
+          <div class="progress-item" style="gap:4px;">
+            <div class="progress-head"><span class="progress-name" style="color:var(--muted)">어제</span><span class="progress-value" style="color:var(--muted)">${yestPct}%</span></div>
+            <div class="progress-track"><div class="progress-fill" style="width:${yestPct}%;background:#c0c7d0;"></div></div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-left:3px solid var(--accent);background:#f8fdf8;">
+        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:4px;">분석</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5;">${d.context}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding:0 2px;">
+        <span>주간 평균 ${d.weekAvg.toLocaleString()}${d.unit}/일</span>
+        <span style="font-weight:700;">${d.note}</span>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="closeModal();navTo('/production/${procKey}')">상세 실적 보기</button>`
+  );
+}
+
+// ── 목표달성률 원인 분석 팝업 ──────────────────────────────────
+const GOAL_DATA = {
+  wire: {
+    name: "신선", actual: 318, target: 342, pct: 93, fill: "wire",
+    status: "주의", statusColor: "var(--warning)",
+    cause: "DR-02 점검 정지 (금일 08:00~)",
+    loss: "약 24t 손실 추정",
+    action: "DR-01/03/04 증산으로 일부 만회 중",
+    outlook: "DR-02 복구 완료 시 목표 달성 가능 (예상 15:00)",
+    link: "/production/wire",
+  },
+  tg: {
+    name: "TG", actual: 1124, target: 1200, pct: 94, fill: "tg",
+    status: "주의", statusColor: "var(--warning)",
+    cause: "TG-03 접점 신호 지연 → 정지 42분 (11:48~)",
+    loss: "약 76t 손실 추정",
+    action: "공무팀 현장 확인 중 (FAC-02 대응)",
+    outlook: "TG-03 복구 지연 시 목표 미달 가능성 있음",
+    link: "/production/tg",
+  },
+  forming: {
+    name: "포밍", actual: 520, target: 600, pct: 87, fill: "forming",
+    status: "위험", statusColor: "var(--danger)",
+    cause: "PRESS-FM-04 과열 경고 → 점검 정지 (13:48~)",
+    loss: "약 80t 손실 추정 (정지 지속 중)",
+    action: "FAC-02 현장 확인 / 온도 안정화 대기",
+    outlook: "금일 목표 달성 어려움 — 조치 우선 필요",
+    link: "/production/forming",
+  },
+  assembly: {
+    name: "조립 (외주)", actual: 363, target: 328, pct: 111, fill: "assembly",
+    status: "초과달성", statusColor: "var(--accent)",
+    cause: "외주 라인 증산 요청 반영 (전주 대비 +2라인)",
+    loss: "없음 (+35t 초과)",
+    action: "패킹 완료 18건, 야적 위치 등록 3건 대기 중",
+    outlook: "외주 지연 건(LX-22018) 모니터링 필요",
+    link: "/production/assembly",
+  },
+};
+
+function showGoalDetailPopup(procKey) {
+  const d = GOAL_DATA[procKey];
+  return showModal(
+    `${d.name} 목표 달성률 분석`,
+    `<div style="display:grid;gap:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--surface-soft);border:1px solid var(--surface-border);">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">달성률</div>
+          <div style="font-size:36px;font-weight:800;letter-spacing:-.04em;">${d.pct}%</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);">실적 / 목표</div>
+          <div style="font-size:18px;font-weight:800;">${d.actual.toLocaleString()}t / ${d.target.toLocaleString()}t</div>
+          <div style="margin-top:6px;font-size:12px;font-weight:800;color:${d.statusColor};">${d.status}</div>
+        </div>
+      </div>
+      <div class="progress-track" style="height:12px;">
+        <div class="progress-fill ${d.fill}" style="width:${Math.min(d.pct,100)}%"></div>
+      </div>
+      <div style="display:grid;gap:8px;">
+        <div style="padding:10px 14px;border:1px solid var(--surface-border);background:var(--surface);display:grid;grid-template-columns:80px 1fr;gap:6px 12px;font-size:12px;">
+          <span style="font-weight:800;color:var(--muted);">원인</span><span>${d.cause}</span>
+          <span style="font-weight:800;color:var(--muted);">손실 추정</span><span style="color:${d.statusColor};font-weight:700;">${d.loss}</span>
+          <span style="font-weight:800;color:var(--muted);">현재 조치</span><span>${d.action}</span>
+          <span style="font-weight:800;color:var(--muted);">전망</span><span>${d.outlook}</span>
+        </div>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="closeModal();navTo('${d.link}')">공정 실적 보기</button>`
+  );
+}
+
+// ── 알림 상세 팝업 ─────────────────────────────────────────────
+const ALERT_DETAIL = {
+  tg03: {
+    title: "TG-03 설비 이상 감지",
+    type: "설비 이상",
+    typeColor: "var(--danger)",
+    time: "14:23",
+    equipment: "TG-03 / TG 공정",
+    detail: "접점 신호 지연 감지 후 설비 정지 (42분 경과)",
+    impact: "TG 금일 실적 약 76t 감소 추정 / 접점 수집 공백 구간 발생",
+    notified: "생산관리자, 공무팀",
+    status: "현장 확인 중 (FAC-02)",
+    links: ["/facility/alert", "/production/tg"],
+    linkLabels: ["설비 알림 화면", "TG 실적 보기"],
+  },
+  defect: {
+    title: "부적합 등록 — 포밍 / 치수 불량",
+    type: "품질 이상",
+    typeColor: "var(--warning)",
+    time: "13:47",
+    equipment: "FM-02 / 포밍 공정",
+    detail: "형상 오차 12.4kg 부적합 등록 — LX-21018",
+    impact: "부적합률 0.82% → 기준 초과 여부 검토 필요 / 재작업 여부 미결",
+    notified: "품질팀 자동 알림 발송",
+    status: "품질팀 검토 대기",
+    links: ["/quality/analysis", "/quality/register"],
+    linkLabels: ["부적합 분석", "부적합 등록"],
+  },
+  fifo: {
+    title: "원자재 LOT-0142 FIFO 경고",
+    type: "자재 경고",
+    typeColor: "#2f7dff",
+    time: "12:10",
+    equipment: "신선 공정 / DR-01",
+    detail: "LOT-20260401-01 이전 로트 잔량(420kg) 사용 전 이후 로트 투입 감지",
+    impact: "선입선출 원칙 위반 / 로트 추적 체계 혼선 가능성",
+    notified: "생산관리자",
+    status: "담당자 확인 요청",
+    links: ["/inventory/material", "/trace"],
+    linkLabels: ["원자재/로트 조회", "추적 조회"],
+  },
+  outsource: {
+    title: "외주 조립 W-2024-0681 지연",
+    type: "외주 지연",
+    typeColor: "#2f7dff",
+    time: "11:00",
+    equipment: "조립 외주 / LX-22018",
+    detail: "완료 예정일(2026-04-14) 초과 — 현재 상태: 작업 중",
+    impact: "연계 출하 일정 영향 가능 / 야적장 위치 등록 지연",
+    notified: "생산관리자",
+    status: "외주업체 진행 상황 재확인 필요",
+    links: ["/outsource", "/inventory/shipping"],
+    linkLabels: ["외주 현황 보기", "출하 현황 조회"],
+  },
+};
+
+function showAlertDetailPopup(alertKey) {
+  const d = ALERT_DETAIL[alertKey];
+  showModal(
+    d.title,
+    `<div style="display:grid;gap:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:800;padding:4px 10px;background:${d.typeColor}22;color:${d.typeColor};border-radius:4px;">${d.type}</span>
+        <span style="font-size:12px;color:var(--muted);font-weight:700;">발생 ${d.time}</span>
+      </div>
+      <div style="display:grid;gap:6px;padding:14px;border:1px solid var(--surface-border);background:var(--surface-soft);font-size:12px;">
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:6px 12px;">
+          <span style="font-weight:800;color:var(--muted);">설비/공정</span><span>${d.equipment}</span>
+          <span style="font-weight:800;color:var(--muted);">내용</span><span>${d.detail}</span>
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-left:3px solid ${d.typeColor};background:#fafafa;font-size:12px;">
+        <div style="font-weight:800;margin-bottom:4px;color:var(--text);">영향 범위</div>
+        <div style="color:var(--muted);line-height:1.5;">${d.impact}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+        <div style="padding:10px;border:1px solid var(--surface-border);">
+          <div style="font-weight:800;color:var(--muted);margin-bottom:4px;">알림 대상</div>
+          <div>${d.notified}</div>
+        </div>
+        <div style="padding:10px;border:1px solid var(--surface-border);">
+          <div style="font-weight:800;color:var(--muted);margin-bottom:4px;">처리 상태</div>
+          <div style="font-weight:700;">${d.status}</div>
+        </div>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="outline-btn" onclick="closeModal();navTo('${d.links[1]}')">${d.linkLabels[1]}</button>
+     <button class="secondary-btn" onclick="closeModal();navTo('${d.links[0]}')">${d.linkLabels[0]}</button>`
+  );
+}
+
+// ── 추이 차트 공정 요약 팝업 ───────────────────────────────────
+const PROCESS_SUMMARY = {
+  tg: {
+    name: "TG", icon: "bolt",
+    today: "1,124t", target: "1,200t", pct: 94, fill: "tg",
+    running: "TG-01, 02, 04, 05, 07 (5대 가동중)",
+    issue: "TG-03 정지 42분 / TG-06 대기",
+    lastHour: "14:00 — 178t (최고치)",
+    link: "/production/tg",
+  },
+  assembly: {
+    name: "조립", icon: "handyman",
+    today: "363t", target: "328t", pct: 111, fill: "assembly",
+    running: "1/3/4/5라인 가동 (4라인)",
+    issue: "2라인 자재 교체 중",
+    lastHour: "14:00 — 57t",
+    link: "/production/assembly",
+  },
+  wire: {
+    name: "신선", icon: "cable",
+    today: "318t", target: "342t", pct: 93, fill: "wire",
+    running: "DR-01, 03, 04 가동 (3대)",
+    issue: "DR-02 점검 정지 중",
+    lastHour: "14:00 — 52t",
+    link: "/production/wire",
+  },
+  forming: {
+    name: "포밍", icon: "compress",
+    today: "520t", target: "600t", pct: 87, fill: "forming",
+    running: "FM-01, FM-02 가동 (2대)",
+    issue: "PRESS-FM-04 점검 정지 (13:48~)",
+    lastHour: "14:00 — 72t",
+    link: "/production/forming",
+  },
+};
+
+function showProcessSummaryPopup(procKey) {
+  const d = PROCESS_SUMMARY[procKey];
+  return showModal(
+    `${d.name} 공정 실시간 요약`,
+    `<div style="display:grid;gap:12px;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:14px;background:var(--surface-soft);border:1px solid var(--surface-border);">
+        <div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">금일 생산량</div>
+          <div style="font-size:32px;font-weight:800;letter-spacing:-.03em;margin-top:4px;">${d.today}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:var(--muted);">목표 ${d.target}</div>
+          <div style="font-size:20px;font-weight:800;color:${d.pct >= 100 ? "var(--accent)" : d.pct >= 90 ? "var(--warning)" : "var(--danger)"};">${d.pct}%</div>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${d.fill}" style="width:${Math.min(d.pct,100)}%"></div></div>
+      <div style="display:grid;gap:8px;font-size:12px;">
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:6px 12px;padding:12px 14px;border:1px solid var(--surface-border);">
+          <span style="font-weight:800;color:var(--muted);">가동 설비</span><span>${d.running}</span>
+          <span style="font-weight:800;color:var(--muted);">이상/정지</span><span style="color:var(--warning);font-weight:700;">${d.issue}</span>
+          <span style="font-weight:800;color:var(--muted);">최근 1시간</span><span>${d.lastHour}</span>
+        </div>
+      </div>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="closeModal();navTo('${d.link}')">상세 실적 보기</button>`
+  );
+}
+
+function showGoalBreakdownModal() {
+  showModal(
+    "목표 달성률 공정별 현황",
+    `<div style="margin-bottom:16px; font-size:13px; color:var(--muted);">
+      금일 기준 / 목표 대비 실적 (클릭 시 공정 상세 이동)
+    </div>
+    <div class="progress-list">
+      <div class="progress-item" onclick="closeModal(); navTo('/production/wire')" style="cursor:pointer">
+        <div class="progress-head">
+          <span class="progress-name">신선</span>
+          <span class="progress-value" style="color:#d4ad36;font-weight:800;">318t / 342t · 93%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill wire" style="width:93%"></div></div>
+      </div>
+      <div class="progress-item" onclick="closeModal(); navTo('/production/tg')" style="cursor:pointer">
+        <div class="progress-head">
+          <span class="progress-name">TG</span>
+          <span class="progress-value" style="color:#2fbf5b;font-weight:800;">1,124t / 1,200t · 94%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill tg" style="width:94%"></div></div>
+      </div>
+      <div class="progress-item" onclick="closeModal(); navTo('/production/forming')" style="cursor:pointer">
+        <div class="progress-head">
+          <span class="progress-name">포밍</span>
+          <span class="progress-value" style="color:#d4ad36;font-weight:800;">520t / 600t · 87%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill forming" style="width:87%"></div></div>
+      </div>
+      <div class="progress-item" onclick="closeModal(); navTo('/production/assembly')" style="cursor:pointer">
+        <div class="progress-head">
+          <span class="progress-name">조립 (외주)</span>
+          <span class="progress-value" style="color:#60AC56;font-weight:800;">363t / 328t · 111%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill assembly" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--surface-border); display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:13px; color:var(--muted);">4공정 합산</span>
+      <span style="font-size:20px; font-weight:800;">2,325t / 2,470t <span style="color:var(--accent);">94%</span></span>
+    </div>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>
+     <button class="secondary-btn" onclick="closeModal(); navTo('/production/results')">실적 종합 현황</button>`
+  );
+}
+
+function showOutsourceRegisterModal() {
+  showModal(
+    "지시 등록",
+    `<div class="kv">
+      <div class="kv-row"><span>등록 유형</span><strong>외주 조립 지시</strong></div>
+    </div>
+    <label class="modal-input-label">제작번호</label>
+    <input type="text" placeholder="예: LX-22025" />
+    <label class="modal-input-label">지시 내용</label>
+    <input type="text" placeholder="조립 사양, 수량, 납기 입력" />
+    <label class="modal-input-label">완료 예정일</label>
+    <input type="text" placeholder="예: 2026-04-20" />`,
+    `<button class="outline-btn" onclick="closeModal()">취소</button>
+     <button class="secondary-btn" onclick="showSaveSuccessModal('지시 등록 완료', '외주 조립 지시가 등록되었습니다.')">등록</button>`
+  );
+}
 
 function parseHashState() {
   const raw = location.hash.replace(/^#/, "") || "/dashboard";
@@ -209,7 +743,7 @@ function renderRoute() {
   const route = ROUTES[path] || ROUTES["/dashboard"];
   titleEl.textContent = route.title;
   breadcrumbEl.textContent = route.breadcrumb;
-  topbarActionsEl.dataset.scope = path === "/dashboard" || path === "/dashboard/board" ? "dashboard" : "default";
+  topbarActionsEl.dataset.scope = (path === "/dashboard" || path === "/dashboard/board") ? "dashboard" : "default";
   topbarActionsEl.innerHTML = renderTopbarActions(path);
   renderNav();
   appEl.innerHTML = route.render(params);
@@ -219,8 +753,8 @@ function renderTopbarActions(path) {
   if (path === "/dashboard" || path === "/dashboard/board") {
     return `
       <div class="topbar-badge">기준일 2026-04-15</div>
-      <button class="ghost-btn">현황 새로고침</button>
-      <button class="primary-btn">보고서 다운로드</button>
+      <button class="ghost-btn" onclick="showSaveSuccessModal('현황 새로고침', '최신 데이터로 업데이트되었습니다.')">현황 새로고침</button>
+      <button class="primary-btn" onclick="showSaveSuccessModal('보고서 다운로드', '금일 생산 현황 보고서 다운로드가 시작되었습니다.')">보고서 다운로드</button>
     `;
   }
 
@@ -230,8 +764,8 @@ function renderTopbarActions(path) {
         <span class="material-symbols-outlined">search</span>
         <input type="text" placeholder="제작번호, 현장명, 패킹번호 검색" />
       </label>
-      <button class="ghost-btn">필터 초기화</button>
-      <button class="primary-btn">조회 실행</button>
+      <button class="ghost-btn" onclick="showSaveSuccessModal('필터 초기화', '검색 조건이 초기화되었습니다.')">필터 초기화</button>
+      <button class="primary-btn" onclick="showSaveSuccessModal('조회 완료', '검색 결과를 불러왔습니다.')">조회 실행</button>
     `;
   }
 
@@ -241,8 +775,8 @@ function renderTopbarActions(path) {
         <span class="material-symbols-outlined">search</span>
         <input type="text" placeholder="제작번호, 부적합 유형 검색" />
       </label>
-      <button class="ghost-btn">초기화</button>
-      <button class="primary-btn">저장/발행</button>
+      <button class="ghost-btn" onclick="showSaveSuccessModal('초기화 완료', '검색 조건이 초기화되었습니다.')">초기화</button>
+      <button class="primary-btn" onclick="showSaveSuccessModal('저장 완료', '변경사항이 저장되었습니다.')">저장/발행</button>
     `;
   }
 
@@ -252,8 +786,8 @@ function renderTopbarActions(path) {
         <span class="material-symbols-outlined">search</span>
         <input type="text" placeholder="설비명, 알림 유형 검색" />
       </label>
-      <button class="ghost-btn">알림 새로고침</button>
-      <button class="primary-btn">설비 이력 보기</button>
+      <button class="ghost-btn" onclick="showSaveSuccessModal('알림 새로고침', '최신 알림으로 업데이트되었습니다.')">알림 새로고침</button>
+      <button class="primary-btn" onclick="navTo('/facility/alert')">설비 이력 보기</button>
     `;
   }
 
@@ -263,8 +797,8 @@ function renderTopbarActions(path) {
         <span class="material-symbols-outlined">search</span>
         <input type="text" placeholder="제작번호, 외주 상태 검색" />
       </label>
-      <button class="ghost-btn">지시 등록</button>
-      <button class="primary-btn">상태 저장</button>
+      <button class="ghost-btn" onclick="showOutsourceRegisterModal()">지시 등록</button>
+      <button class="primary-btn" onclick="showSaveSuccessModal('상태 저장 완료', '변경사항이 저장되었습니다.')">상태 저장</button>
     `;
   }
 
@@ -276,9 +810,10 @@ function renderTopbarActions(path) {
   `;
 }
 
-function metricCard(label, value, sub, tone = "") {
+function metricCard(label, value, sub, tone = "", link = "") {
+  const clickAttr = link ? `onclick="navTo('${link}')" style="cursor:pointer"` : "";
   return `
-    <div class="metric-card ${tone}">
+    <div class="metric-card ${tone}" ${clickAttr}>
       <div class="metric-label">${label}</div>
       <div class="metric-value">${value}</div>
       <div class="metric-sub">${sub}</div>
@@ -303,9 +838,10 @@ function statusCard(name, state, temp, pressure, efficiency, tone = "") {
   `;
 }
 
-function equipmentCard(name, state, signal, score, tone = "") {
+function equipmentCard(name, state, signal, score, tone = "", link = "") {
+  const clickAttr = link ? `onclick="navTo('${link}')" style="cursor:pointer"` : "";
   return `
-    <div class="equipment-card ${tone}">
+    <div class="equipment-card ${tone}" ${clickAttr}>
       <div class="equipment-head">
         <div class="equipment-name">${name}</div>
         <div class="equipment-score">${score}</div>
@@ -325,10 +861,10 @@ function trendChart() {
   return `
     <div class="trend-chart">
       <div class="trend-legend">
-        <div class="legend-item"><span class="legend-swatch tg"></span><span>TG</span></div>
-        <div class="legend-item"><span class="legend-swatch assembly"></span><span>조립</span></div>
-        <div class="legend-item"><span class="legend-swatch wire"></span><span>신선</span></div>
-        <div class="legend-item"><span class="legend-swatch forming"></span><span>포밍</span></div>
+        <div class="legend-item" onclick="showProcessSummaryPopup('tg')" style="cursor:pointer" title="TG 실시간 요약"><span class="legend-swatch tg"></span><span>TG</span></div>
+        <div class="legend-item" onclick="showProcessSummaryPopup('assembly')" style="cursor:pointer" title="조립 실시간 요약"><span class="legend-swatch assembly"></span><span>조립</span></div>
+        <div class="legend-item" onclick="showProcessSummaryPopup('wire')" style="cursor:pointer" title="신선 실시간 요약"><span class="legend-swatch wire"></span><span>신선</span></div>
+        <div class="legend-item" onclick="showProcessSummaryPopup('forming')" style="cursor:pointer" title="포밍 실시간 요약"><span class="legend-swatch forming"></span><span>포밍</span></div>
       </div>
       <svg viewBox="0 0 720 220" class="trend-svg" role="img" aria-label="시간대별 생산량 추이">
         <line x1="44" y1="22" x2="44" y2="176" class="trend-axis"></line>
@@ -403,7 +939,10 @@ function productionCompareChart() {
     <div class="compare-chart">
       <div class="compare-toolbar">
         <div class="compare-legend">
-          <div class="legend-item"><span class="legend-swatch compare-today"></span><span>오늘</span></div>
+          <div class="legend-item"><span class="legend-swatch wire"></span><span>신선</span></div>
+          <div class="legend-item"><span class="legend-swatch tg"></span><span>TG</span></div>
+          <div class="legend-item"><span class="legend-swatch forming"></span><span>포밍</span></div>
+          <div class="legend-item"><span class="legend-swatch assembly"></span><span>조립</span></div>
           <div class="legend-item"><span class="legend-swatch compare-yesterday"></span><span>어제</span></div>
         </div>
         <div class="tab-row">
@@ -425,22 +964,22 @@ function productionCompareChart() {
         <text x="18" y="116" class="trend-y-label">600</text>
         <text x="18" y="148" class="trend-y-label">300</text>
 
-        <rect x="72" y="70" width="54" height="108" rx="6" class="compare-bar today"></rect>
-        <rect x="134" y="82" width="54" height="96" rx="6" class="compare-bar yesterday"></rect>
+        <rect x="72" y="70" width="54" height="108" rx="6" class="compare-bar wire" onclick="showProcessComparePopup('wire')" style="cursor:pointer"></rect>
+        <rect x="134" y="82" width="54" height="96" rx="6" class="compare-bar yesterday" onclick="showProcessComparePopup('wire')" style="cursor:pointer"></rect>
 
-        <rect x="236" y="38" width="54" height="140" rx="6" class="compare-bar today"></rect>
-        <rect x="298" y="56" width="54" height="122" rx="6" class="compare-bar yesterday"></rect>
+        <rect x="236" y="38" width="54" height="140" rx="6" class="compare-bar tg" onclick="showProcessComparePopup('tg')" style="cursor:pointer"></rect>
+        <rect x="298" y="56" width="54" height="122" rx="6" class="compare-bar yesterday" onclick="showProcessComparePopup('tg')" style="cursor:pointer"></rect>
 
-        <rect x="400" y="112" width="54" height="66" rx="6" class="compare-bar today"></rect>
-        <rect x="462" y="98" width="54" height="80" rx="6" class="compare-bar yesterday"></rect>
+        <rect x="400" y="112" width="54" height="66" rx="6" class="compare-bar forming" onclick="showProcessComparePopup('forming')" style="cursor:pointer"></rect>
+        <rect x="462" y="98" width="54" height="80" rx="6" class="compare-bar yesterday" onclick="showProcessComparePopup('forming')" style="cursor:pointer"></rect>
 
-        <rect x="564" y="132" width="54" height="46" rx="6" class="compare-bar today"></rect>
-        <rect x="626" y="144" width="54" height="34" rx="6" class="compare-bar yesterday"></rect>
+        <rect x="564" y="132" width="54" height="46" rx="6" class="compare-bar assembly" onclick="showProcessComparePopup('assembly')" style="cursor:pointer"></rect>
+        <rect x="626" y="144" width="54" height="34" rx="6" class="compare-bar yesterday" onclick="showProcessComparePopup('assembly')" style="cursor:pointer"></rect>
 
-        <text x="130" y="206" text-anchor="middle" class="trend-x-label">신선</text>
-        <text x="294" y="206" text-anchor="middle" class="trend-x-label">TG</text>
-        <text x="458" y="206" text-anchor="middle" class="trend-x-label">포밍</text>
-        <text x="622" y="206" text-anchor="middle" class="trend-x-label">조립(외주)</text>
+        <text x="130" y="206" text-anchor="middle" class="trend-x-label" onclick="showProcessComparePopup('wire')" style="cursor:pointer">신선</text>
+        <text x="294" y="206" text-anchor="middle" class="trend-x-label" onclick="showProcessComparePopup('tg')" style="cursor:pointer">TG</text>
+        <text x="458" y="206" text-anchor="middle" class="trend-x-label" onclick="showProcessComparePopup('forming')" style="cursor:pointer">포밍</text>
+        <text x="622" y="206" text-anchor="middle" class="trend-x-label" onclick="showProcessComparePopup('assembly')" style="cursor:pointer">조립(외주)</text>
       </svg>
     </div>
   `;
@@ -450,10 +989,14 @@ function renderDashboard() {
   return `
     <div class="stack">
       <div class="metric-grid">
-        ${metricCard("금일 총 생산량", "2,847t", "전일 대비 +12.4%", "success")}
-        ${metricCard("목표 달성률", "94%", "금일 목표 3,028t", "success")}
-        ${metricCard("부적합 건수", "3건", "전일 대비 1건 증가", "warning")}
-        ${metricCard("설비 정지 (30분+)", "1건", "TG-03 설비 알림 확인 필요", "danger")}
+        ${metricCard("금일 총 생산량", "2,847t", "전일 대비 +12.4%", "success", "/production/results")}
+        <div class="metric-card success" onclick="showGoalBreakdownModal()" style="cursor:pointer">
+          <div class="metric-label">목표 달성률</div>
+          <div class="metric-value">94%</div>
+          <div class="metric-sub">공정별 달성 현황 보기 →</div>
+        </div>
+        ${metricCard("부적합 건수", "3건", "전일 대비 1건 증가", "warning", "/quality/analysis")}
+        ${metricCard("설비 정지 (30분+)", "1건", "TG-03 설비 알림 확인 필요", "danger", "/facility/alert")}
       </div>
 
       <div class="dashboard-top-layout">
@@ -461,7 +1004,10 @@ function renderDashboard() {
           <section class="panel">
             <div class="panel-title">
               <h3>시간대별 생산량 추이</h3>
-              <span class="panel-note">금일 기준 4개 공정 누계</span>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span class="panel-note">금일 기준 4개 공정 누계 · 범례 클릭 시 공정별 이동</span>
+                <button class="outline-btn" onclick="navTo('/production/trend')" style="padding:5px 12px;font-size:11px;white-space:nowrap;">원본 데이터 보기</button>
+              </div>
             </div>
             ${trendChart()}
           </section>
@@ -471,16 +1017,16 @@ function renderDashboard() {
           <section class="panel equipment-panel">
             <div class="panel-title">
               <h3>주요 설비 상태</h3>
-              <span class="card-badge">7대</span>
+              <button class="outline-btn" onclick="navTo('/facility/status')" style="padding:5px 12px;font-size:11px;white-space:nowrap;">전체 설비 보기</button>
             </div>
             <div class="equipment-grid">
-              ${equipmentCard("TG-01", "가동중", "가동중 · 점검신호", "98%", "normal")}
-              ${equipmentCard("TG-02", "가동중", "가동중 · 점검신호", "91%", "normal")}
-              ${equipmentCard("TG-03", "정지 42분", "정지 42분", "—", "danger")}
-              ${equipmentCard("TG-04", "가동중", "가동중 · 점검신호", "87%", "normal")}
-              ${equipmentCard("TG-05", "가동중", "가동중 · 점검신호", "95%", "normal")}
-              ${equipmentCard("TG-06", "대기", "대기", "—", "warning")}
-              ${equipmentCard("TG-07", "가동중", "가동중 · 점검신호", "93%", "normal")}
+              ${equipmentCard("TG-01", "가동중", "가동중 · 점검신호", "98%", "normal", "/facility/status")}
+              ${equipmentCard("TG-02", "가동중", "가동중 · 점검신호", "91%", "normal", "/facility/status")}
+              ${equipmentCard("TG-03", "정지 42분", "정지 42분", "—", "danger", "/facility/alert")}
+              ${equipmentCard("TG-04", "가동중", "가동중 · 점검신호", "87%", "normal", "/facility/status")}
+              ${equipmentCard("TG-05", "가동중", "가동중 · 점검신호", "95%", "normal", "/facility/status")}
+              ${equipmentCard("TG-06", "대기", "대기", "—", "warning", "/facility/status")}
+              ${equipmentCard("TG-07", "가동중", "가동중 · 점검신호", "93%", "normal", "/facility/status")}
             </div>
           </section>
         </div>
@@ -490,7 +1036,10 @@ function renderDashboard() {
         <section class="panel">
           <div class="panel-title">
             <h3>공정별 생산량 비교</h3>
-            <span class="panel-note">오늘/어제 기준 비교</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span class="panel-note">오늘/어제 · 막대 클릭 시 공정 이동</span>
+              <button class="outline-btn" onclick="navTo('/production/results')" style="padding:5px 12px;font-size:11px;white-space:nowrap;">실적 현황 보기</button>
+            </div>
           </div>
           ${productionCompareChart()}
         </section>
@@ -498,33 +1047,34 @@ function renderDashboard() {
         <section class="panel">
           <div class="panel-title">
             <h3>공정별 목표 달성률</h3>
+            <span class="panel-note" style="cursor:default">클릭 → 공정별 상세</span>
           </div>
           <div class="progress-list">
-            <div class="progress-item">
+            <div class="progress-item" onclick="showGoalDetailPopup('wire')" style="cursor:pointer">
               <div class="progress-head">
                 <span class="progress-name">신선</span>
-                <span class="progress-value">840 / 900</span>
+                <span class="progress-value">840t / 900t · 93%</span>
               </div>
               <div class="progress-track"><div class="progress-fill wire" style="width:93%"></div></div>
             </div>
-            <div class="progress-item">
+            <div class="progress-item" onclick="showGoalDetailPopup('tg')" style="cursor:pointer">
               <div class="progress-head">
                 <span class="progress-name">TG</span>
-                <span class="progress-value">1,124 / 1,200</span>
+                <span class="progress-value">1,124t / 1,200t · 94%</span>
               </div>
               <div class="progress-track"><div class="progress-fill tg" style="width:94%"></div></div>
             </div>
-            <div class="progress-item">
+            <div class="progress-item" onclick="showGoalDetailPopup('forming')" style="cursor:pointer">
               <div class="progress-head">
                 <span class="progress-name">포밍</span>
-                <span class="progress-value">520 / 600</span>
+                <span class="progress-value">520t / 600t · 87%</span>
               </div>
               <div class="progress-track"><div class="progress-fill forming" style="width:87%"></div></div>
             </div>
-            <div class="progress-item">
+            <div class="progress-item" onclick="showGoalDetailPopup('assembly')" style="cursor:pointer">
               <div class="progress-head">
                 <span class="progress-name">조립 (외주)</span>
-                <span class="progress-value">363 / 328</span>
+                <span class="progress-value">363t / 328t · 111%</span>
               </div>
               <div class="progress-track"><div class="progress-fill assembly" style="width:100%"></div></div>
             </div>
@@ -534,31 +1084,31 @@ function renderDashboard() {
         <section class="panel recent-alerts-panel">
           <div class="panel-title">
             <h3>최근 알림</h3>
-            <span class="panel-note">4건</span>
+            <button class="outline-btn" onclick="navTo('/facility/alert')" style="padding:5px 12px;font-size:11px;white-space:nowrap;">전체 알림 보기</button>
           </div>
           <div class="alert-list">
-            <div class="alert-item">
+            <div class="alert-item" onclick="showAlertDetailPopup('tg03')" style="cursor:pointer">
               <div class="alert-head">
                 <div class="alert-title">TG-03 설비 이상 감지</div>
                 <div class="alert-time">14:23</div>
               </div>
               <div class="alert-text">설비 이상 확인이 필요합니다.</div>
             </div>
-            <div class="alert-item warning">
+            <div class="alert-item warning" onclick="showAlertDetailPopup('defect')" style="cursor:pointer">
               <div class="alert-head">
                 <div class="alert-title">부적합 등록 — 포밍 / 치수 불량</div>
                 <div class="alert-time">13:47</div>
               </div>
               <div class="alert-text">재작업 여부 확인이 필요합니다.</div>
             </div>
-            <div class="alert-item info">
+            <div class="alert-item info" onclick="showAlertDetailPopup('fifo')" style="cursor:pointer">
               <div class="alert-head">
                 <div class="alert-title">원자재 LOT-0142 FIFO 경고</div>
                 <div class="alert-time">12:10</div>
               </div>
               <div class="alert-text">이전 로트 먼저 사용이 필요합니다.</div>
             </div>
-            <div class="alert-item info">
+            <div class="alert-item info" onclick="showAlertDetailPopup('outsource')" style="cursor:pointer">
               <div class="alert-head">
                 <div class="alert-title">외주 조립 W-2024-0681 지연</div>
                 <div class="alert-time">11:00</div>
@@ -576,10 +1126,10 @@ function renderBoard() {
   return `
     <div class="stack">
       <div class="metric-grid">
-        ${metricCard("신선", "318t", "금일 생산량", "")}
-        ${metricCard("TG", "274t", "실시간 집계", "")}
-        ${metricCard("포밍", "296t", "완료 수량", "")}
-        ${metricCard("조립", "244t", "패킹 완료", "")}
+        ${metricCard("신선", "318t", "금일 생산량 · 93%", "", "/production/wire")}
+        ${metricCard("TG", "1,124t", "실시간 집계 · 94%", "", "/production/tg")}
+        ${metricCard("포밍", "520t", "완료 수량 · 87%", "", "/production/forming")}
+        ${metricCard("조립", "363t", "패킹 완료 18건", "", "/production/assembly")}
       </div>
       <section class="panel">
         <div class="panel-title">
@@ -587,10 +1137,10 @@ function renderBoard() {
           <span class="panel-note">TV / 대형 모니터 전용</span>
         </div>
         <div class="status-grid">
-          ${statusCard("TG 7대 상태", "6대 정상 / 1대 점검", "-", "-", "-", "warning")}
-          ${statusCard("조립 5라인", "4라인 정상 / 1라인 지연", "-", "-", "-", "")}
-          ${statusCard("품질 이상", "금일 4건", "-", "-", "-", "danger")}
-          ${statusCard("출하 예정", "18건", "-", "-", "-", "success")}
+          <div onclick="navTo('/facility/status')" style="cursor:pointer">${statusCard("TG 7대 상태", "6대 정상 / 1대 점검", "-", "-", "-", "warning")}</div>
+          <div onclick="navTo('/production/assembly')" style="cursor:pointer">${statusCard("조립 5라인", "4라인 정상 / 1라인 지연", "-", "-", "-", "")}</div>
+          <div onclick="navTo('/quality/analysis')" style="cursor:pointer">${statusCard("품질 이상", "금일 4건", "-", "-", "-", "danger")}</div>
+          <div onclick="navTo('/inventory/shipping')" style="cursor:pointer">${statusCard("출하 예정", "18건", "-", "-", "-", "success")}</div>
         </div>
       </section>
     </div>
@@ -599,104 +1149,502 @@ function renderBoard() {
 
 function renderResults(params = new URLSearchParams()) {
   const period = params.get("period") || "day";
-  const process = params.get("process") || "all";
-  const periodMap = {
-    day: {
-      total: "1,284t",
-      target: "목표 달성률 92%",
-      tg: "274t",
-      correction: "12건",
-      rows: [
-        ["2026-04-14 08:00", "TG", "TG-01", "46t", "접점 신호", '<span class="pill">자동</span>'],
-        ["2026-04-14 09:00", "포밍", "FM-02", "61t", "OPC", '<span class="pill">자동</span>'],
-        ["2026-04-14 10:00", "조립", "조립 3라인", "44t", "수동 입력", '<span class="pill warning">보정</span>'],
-        ["2026-04-14 11:00", "신선", "DR-01", "72t", "OPC", '<span class="pill">자동</span>'],
-      ],
-    },
-    week: {
-      total: "6,842t",
-      target: "목표 달성률 96%",
-      tg: "1,524t",
-      correction: "21건",
-      rows: [
-        ["2026-04-08", "TG", "TG-01", "318t", "접점 신호", '<span class="pill">자동</span>'],
-        ["2026-04-09", "포밍", "FM-02", "402t", "OPC", '<span class="pill">자동</span>'],
-        ["2026-04-10", "조립", "조립 2라인", "356t", "수동 입력", '<span class="pill warning">보정</span>'],
-        ["2026-04-11", "신선", "DR-01", "441t", "OPC", '<span class="pill">자동</span>'],
-      ],
-    },
-    month: {
-      total: "27,410t",
-      target: "목표 달성률 91%",
-      tg: "6,120t",
-      correction: "68건",
-      rows: [
-        ["2026-04-01", "TG", "TG-01", "1,284t", "접점 신호", '<span class="pill">자동</span>'],
-        ["2026-04-04", "포밍", "FM-02", "1,462t", "OPC", '<span class="pill">자동</span>'],
-        ["2026-04-07", "조립", "조립 3라인", "1,208t", "수동 입력", '<span class="pill warning">보정</span>'],
-        ["2026-04-10", "신선", "DR-01", "1,534t", "OPC", '<span class="pill">자동</span>'],
-      ],
-    },
+  const periodLabel = period === "week" ? "주간" : period === "month" ? "월간" : "금일";
+  const totals = {
+    day:   { wire: "318t", tg: "1,124t", forming: "520t", assembly: "363t", sum: "2,325t", correction: "12건" },
+    week:  { wire: "2,140t", tg: "7,230t", forming: "3,360t", assembly: "2,112t", sum: "14,842t", correction: "38건" },
+    month: { wire: "8,210t", tg: "28,460t", forming: "13,080t", assembly: "8,400t", sum: "58,150t", correction: "142건" },
   };
-  const processMap = {
-    all: { label: "전체", total: null, tg: null, correction: null },
-    wire: { label: "신선", total: "324t", tg: "신선 324t", correction: "보정 2건" },
-    tg: { label: "TG", total: "274t", tg: "TG 274t", correction: "보정 5건" },
-    forming: { label: "포밍", total: "296t", tg: "포밍 296t", correction: "보정 3건" },
-    assembly: { label: "조립", total: "244t", tg: "조립 244t", correction: "보정 2건" },
-  };
-  const scenario = structuredClone(periodMap[period] || periodMap.day);
-  if (process !== "all") {
-    const targetProcess = process === "wire" ? "신선" : process === "tg" ? "TG" : process === "forming" ? "포밍" : "조립";
-    scenario.rows = scenario.rows.filter((row) => row[1] === targetProcess);
-    scenario.total = processMap[process].total || scenario.total;
-    scenario.tg = processMap[process].tg || scenario.tg;
-    scenario.correction = processMap[process].correction || scenario.correction;
-    scenario.target = `${processMap[process].label} 기준 목표 달성률`;
-  }
+  const d = totals[period] || totals.day;
   return `
     <div class="stack">
       <div class="filter-row">
-        ${filterChipLink("금일", "/production/results", { period: "day", process }, period === "day")}
-        ${filterChipLink("주간", "/production/results", { period: "week", process }, period === "week")}
-        ${filterChipLink("월간", "/production/results", { period: "month", process }, period === "month")}
-        ${filterChipLink("전체", "/production/results", { period, process: "all" }, process === "all")}
-        ${filterChipLink("신선", "/production/results", { period, process: "wire" }, process === "wire")}
-        ${filterChipLink("TG", "/production/results", { period, process: "tg" }, process === "tg")}
-        ${filterChipLink("포밍", "/production/results", { period, process: "forming" }, process === "forming")}
-        ${filterChipLink("조립", "/production/results", { period, process: "assembly" }, process === "assembly")}
+        ${filterChipLink("금일", "/production/results", { period: "day" }, period === "day")}
+        ${filterChipLink("주간", "/production/results", { period: "week" }, period === "week")}
+        ${filterChipLink("월간", "/production/results", { period: "month" }, period === "month")}
       </div>
+
       <div class="metric-grid">
-        ${metricCard("총 생산량", scenario.total, scenario.target, "")}
-        ${metricCard("핵심 공정 집계", scenario.tg, process === "tg" ? "접점 신호 수집" : "공정별 집계", "")}
-        ${metricCard("수동 보정", scenario.correction, "자동 수집 예외", "warning")}
-        ${metricCard("보고 자동화", "완료", "일마감 기준 생성", "success")}
+        ${metricCard("4공정 합계 생산량", d.sum, `${periodLabel} 기준`, "success")}
+        ${metricCard("목표 달성률", "94%", "목표 대비 전체 집계", "success")}
+        ${metricCard("수동 보정", d.correction, "자동 수집 예외 건", "warning")}
+        ${metricCard("수집 이상", "1건", "TG-03 접점 지연", "danger", "/facility/alert")}
       </div>
+
+      <div class="metric-grid" style="grid-template-columns: repeat(4,minmax(0,1fr));">
+        <div class="panel" style="cursor:pointer" onclick="navTo('/production/wire')">
+          <div class="panel-title"><h3>신선</h3><span class="panel-note">DR-01~04 · OPC</span></div>
+          <div style="font-size:32px; font-weight:800; letter-spacing:-0.03em; margin:8px 0 4px;">${d.wire}</div>
+          <div style="font-size:12px; color:var(--muted); font-weight:700;">목표 달성률 93% · 설비 3/4 가동</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="secondary-btn" onclick="event.stopPropagation(); navTo('/production/wire')">상세 보기</button>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="navTo('/production/tg')">
+          <div class="panel-title"><h3>TG</h3><span class="panel-note">TG-01~07 · 접점</span></div>
+          <div style="font-size:32px; font-weight:800; letter-spacing:-0.03em; margin:8px 0 4px;">${d.tg}</div>
+          <div style="font-size:12px; color:var(--muted); font-weight:700;">목표 달성률 94% · 설비 6/7 가동</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="secondary-btn" onclick="event.stopPropagation(); navTo('/production/tg')">상세 보기</button>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="navTo('/production/forming')">
+          <div class="panel-title"><h3>포밍</h3><span class="panel-note">FM-01~03 · OPC</span></div>
+          <div style="font-size:32px; font-weight:800; letter-spacing:-0.03em; margin:8px 0 4px;">${d.forming}</div>
+          <div style="font-size:12px; color:var(--muted); font-weight:700;">목표 달성률 87% · 설비 2/3 가동</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="secondary-btn" onclick="event.stopPropagation(); navTo('/production/forming')">상세 보기</button>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="navTo('/production/assembly')">
+          <div class="panel-title"><h3>조립 (외주)</h3><span class="panel-note">1~5라인 · OPC</span></div>
+          <div style="font-size:32px; font-weight:800; letter-spacing:-0.03em; margin:8px 0 4px;">${d.assembly}</div>
+          <div style="font-size:12px; color:var(--muted); font-weight:700;">목표 달성률 111% · 라인 4/5 가동</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="secondary-btn" onclick="event.stopPropagation(); navTo('/production/assembly')">상세 보기</button>
+          </div>
+        </div>
+      </div>
+
       <section class="table-card">
         <div class="panel-title">
-          <h3>생산실적 상세</h3>
+          <h3>최근 실적 로그</h3>
           <span class="panel-note">공정별 실적이 흩어져 보이던 문제를 해결하기 위한 화면입니다</span>
         </div>
         <table>
           <thead>
-            <tr>
-              <th>일시</th>
-              <th>공정</th>
-              <th>설비</th>
-              <th>생산량</th>
-              <th>수집 방식</th>
-              <th>보정 여부</th>
-            </tr>
+            <tr><th>일시</th><th>공정</th><th>설비</th><th>생산량</th><th>수집 방식</th><th>보정</th></tr>
           </thead>
           <tbody>
-            ${scenario.rows
-              .map(
-                (row) => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td></tr>`
-              )
-              .join("")}
+            <tr style="cursor:pointer" onclick="navTo('/production/tg')"><td>2026-04-14 14:32</td><td>TG</td><td>TG-01</td><td>46t</td><td>접점 신호</td><td><span class="pill success">자동</span></td></tr>
+            <tr style="cursor:pointer" onclick="navTo('/production/forming')"><td>2026-04-14 13:48</td><td>포밍</td><td>FM-02</td><td>61t</td><td>OPC</td><td><span class="pill success">자동</span></td></tr>
+            <tr style="cursor:pointer" onclick="navTo('/production/assembly')"><td>2026-04-14 12:10</td><td>조립</td><td>조립 3라인</td><td>44t</td><td>수동 입력</td><td><span class="pill warning">보정</span></td></tr>
+            <tr style="cursor:pointer" onclick="navTo('/production/wire')"><td>2026-04-14 11:22</td><td>신선</td><td>DR-01</td><td>72t</td><td>OPC</td><td><span class="pill success">자동</span></td></tr>
           </tbody>
         </table>
       </section>
+    </div>
+  `;
+}
+
+function renderTrend(params = new URLSearchParams()) {
+  const proc = params.get("proc") || "all";
+  const hours = [
+    { t: "08:00", wire: 40,  tg: 148, form: 68,  asm: 46  },
+    { t: "09:00", wire: 44,  tg: 158, form: 72,  asm: 50  },
+    { t: "10:00", wire: 48,  tg: 164, form: 76,  asm: 52  },
+    { t: "11:00", wire: 46,  tg: 170, form: 80,  asm: 56  },
+    { t: "12:00", wire: 38,  tg: 156, form: 70,  asm: 48  },
+    { t: "13:00", wire: 50,  tg: 172, form: 82,  asm: 54  },
+    { t: "14:00", wire: 52,  tg: 178, form: 72,  asm: 57  },
+    { t: "15:00*",wire: "—", tg: "진행중", form: "진행중", asm: "진행중" },
+  ];
+  const totals = { wire: 318, tg: 1146, form: 520, asm: 363, sum: 2347 };
+  const peakRow = hours[6]; // 14:00 최고
+  const peakSum = peakRow.wire + peakRow.tg + peakRow.form + peakRow.asm;
+  const maxBarWidth = (v, max) => typeof v === "number" ? Math.round((v / max) * 100) : 0;
+
+  function procRow(row) {
+    if (proc === "all") {
+      const sum = typeof row.wire === "number" ? row.wire + row.tg + row.form + row.asm : "—";
+      return `<tr>
+        <td><strong>${row.t}</strong></td>
+        <td>${row.wire}${typeof row.wire === "number" ? "t" : ""}</td>
+        <td>${row.tg}${typeof row.tg === "number" ? "t" : ""}</td>
+        <td>${row.form}${typeof row.form === "number" ? "t" : ""}</td>
+        <td>${row.asm}${typeof row.asm === "number" ? "t" : ""}</td>
+        <td><strong>${typeof sum === "number" ? sum + "t" : "—"}</strong></td>
+      </tr>`;
+    }
+    const val = row[proc === "wire" ? "wire" : proc === "tg" ? "tg" : proc === "forming" ? "form" : "asm"];
+    const maxVal = proc === "tg" ? 178 : proc === "forming" ? 82 : proc === "assembly" ? 57 : 52;
+    return `<tr>
+      <td><strong>${row.t}</strong></td>
+      <td>${val}${typeof val === "number" ? "t" : ""}</td>
+      <td style="width:60%">
+        <div class="progress-track" style="margin:0">
+          <div class="progress-fill ${proc === "tg" ? "tg" : proc === "forming" ? "forming" : proc === "assembly" ? "assembly" : "wire"}"
+            style="width:${maxBarWidth(val, maxVal)}%"></div>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  return `
+    <div class="stack">
+      <div class="filter-row">
+        ${filterChipLink("전체 공정", "/production/trend", { proc: "all" }, proc === "all")}
+        ${filterChipLink("신선", "/production/trend", { proc: "wire" }, proc === "wire")}
+        ${filterChipLink("TG", "/production/trend", { proc: "tg" }, proc === "tg")}
+        ${filterChipLink("포밍", "/production/trend", { proc: "forming" }, proc === "forming")}
+        ${filterChipLink("조립", "/production/trend", { proc: "assembly" }, proc === "assembly")}
+      </div>
+
+      <div class="metric-grid">
+        ${metricCard("금일 누계 (08~14시)", `${totals.sum.toLocaleString()}t`, "4개 공정 합산 집계", "success")}
+        ${metricCard("시간당 최고 생산", `${peakSum}t`, "14:00 기준 최고치", "")}
+        ${metricCard("시간당 최저 생산", "302t", "08:00 기준 최저치", "")}
+        ${metricCard("수집 이상 시간대", "1건", "TG-03 11:48 접점 지연", "warning", "/facility/alert")}
+      </div>
+
+      <div class="split-layout">
+        <section class="table-card">
+          <div class="panel-title">
+            <h3>시간대별 실적 원본 데이터</h3>
+            <span class="panel-note">대시보드 추이 차트의 기반 데이터입니다 — 각 수치는 해당 시간대 1시간 생산량입니다</span>
+          </div>
+          ${proc === "all" ? `
+          <table>
+            <thead>
+              <tr>
+                <th>시간대</th>
+                <th style="color:#d4ad36">신선</th>
+                <th style="color:#2fbf5b">TG</th>
+                <th style="color:#d4ad36">포밍</th>
+                <th style="color:#7b57d1">조립</th>
+                <th>시간 합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${hours.map(r => procRow(r)).join("")}
+              <tr style="background:var(--surface-soft); font-weight:800;">
+                <td>합계</td>
+                <td>${totals.wire}t</td>
+                <td>${totals.tg.toLocaleString()}t</td>
+                <td>${totals.form}t</td>
+                <td>${totals.asm}t</td>
+                <td>${totals.sum.toLocaleString()}t</td>
+              </tr>
+            </tbody>
+          </table>
+          ` : `
+          <table>
+            <thead>
+              <tr>
+                <th>시간대</th>
+                <th>생산량</th>
+                <th>비율 (최고치 대비)</th>
+              </tr>
+            </thead>
+            <tbody>${hours.map(r => procRow(r)).join("")}</tbody>
+          </table>
+          `}
+        </section>
+
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>공정별 누계</h4>
+            <div class="progress-list">
+              <div class="progress-item" onclick="navTo('/production/wire')" style="cursor:pointer">
+                <div class="progress-head"><span class="progress-name">신선</span><span class="progress-value">${totals.wire}t</span></div>
+                <div class="progress-track"><div class="progress-fill wire" style="width:${Math.round(totals.wire/totals.sum*100)}%"></div></div>
+              </div>
+              <div class="progress-item" onclick="navTo('/production/tg')" style="cursor:pointer">
+                <div class="progress-head"><span class="progress-name">TG</span><span class="progress-value">${totals.tg.toLocaleString()}t</span></div>
+                <div class="progress-track"><div class="progress-fill tg" style="width:${Math.round(totals.tg/totals.sum*100)}%"></div></div>
+              </div>
+              <div class="progress-item" onclick="navTo('/production/forming')" style="cursor:pointer">
+                <div class="progress-head"><span class="progress-name">포밍</span><span class="progress-value">${totals.form}t</span></div>
+                <div class="progress-track"><div class="progress-fill forming" style="width:${Math.round(totals.form/totals.sum*100)}%"></div></div>
+              </div>
+              <div class="progress-item" onclick="navTo('/production/assembly')" style="cursor:pointer">
+                <div class="progress-head"><span class="progress-name">조립</span><span class="progress-value">${totals.asm}t</span></div>
+                <div class="progress-track"><div class="progress-fill assembly" style="width:${Math.round(totals.asm/totals.sum*100)}%"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>이상 구간</h4>
+            <div class="timeline compact">
+              <div class="timeline-item">
+                <div class="timeline-dot open"></div>
+                <div>
+                  <div class="timeline-title">TG-03 접점 지연</div>
+                  <div class="timeline-sub">11:48 ~ 현재 수집 중단</div>
+                </div>
+                <div class="timeline-time">11:48</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div>
+                  <div class="timeline-title">조립 3라인 수동 보정</div>
+                  <div class="timeline-sub">12:10 수기 입력 처리</div>
+                </div>
+                <div class="timeline-time">12:10</div>
+              </div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="outline-btn" onclick="navTo('/dashboard')">대시보드로 돌아가기</button>
+            <button class="secondary-btn" onclick="navTo('/production/results')">실적 종합 현황</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderWire() {
+  return `
+    <div class="stack">
+      <div class="metric-grid">
+        ${metricCard("금일 신선 생산량", "318t", "목표 342t / 달성률 93%", "success")}
+        ${metricCard("설비 가동", "3/4대", "DR-02 점검 정지 중", "warning")}
+        ${metricCard("수동 보정", "2건", "OPC 수집 예외", "warning")}
+        ${metricCard("누적 로트", "3건", "LOT-20260414-01~03", "")}
+      </div>
+      <div class="split-layout">
+        <section class="table-card">
+          <div class="panel-title">
+            <h3>설비별 신선 실적</h3>
+            <span class="panel-note">신선 설비 4대의 OPC 기반 생산 실적을 설비 단위로 조회합니다</span>
+          </div>
+          <table>
+            <thead><tr><th>설비</th><th>금일 생산량</th><th>가동 시간</th><th>마지막 실적</th><th>수집</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">DR-01</td><td>118t</td><td>6h 40m</td><td>14:18</td><td>OPC</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">DR-02</td><td>—</td><td>0h</td><td>09:12</td><td>—</td><td><span class="pill danger">점검 정지</span></td></tr>
+              <tr><td class="mono">DR-03</td><td>96t</td><td>5h 20m</td><td>14:05</td><td>OPC</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">DR-04</td><td>104t</td><td>6h 10m</td><td>14:22</td><td>OPC</td><td><span class="pill success">가동중</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:18px; border-top:1px solid var(--surface-border); padding-top:16px;">
+            <div class="panel-title compact"><h3>시간대별 생산 추이</h3></div>
+            <div class="progress-list">
+              <div class="progress-item">
+                <div class="progress-head"><span class="progress-name">DR-01</span><span class="progress-value">118t / 140t</span></div>
+                <div class="progress-track"><div class="progress-fill wire" style="width:84%"></div></div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-head"><span class="progress-name">DR-03</span><span class="progress-value">96t / 100t</span></div>
+                <div class="progress-track"><div class="progress-fill wire" style="width:96%"></div></div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-head"><span class="progress-name">DR-04</span><span class="progress-value">104t / 102t</span></div>
+                <div class="progress-track"><div class="progress-fill wire" style="width:100%"></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>DR-01 상세</h4>
+            <div class="kv">
+              <div class="kv-row"><span>설비 상태</span><strong>가동중</strong></div>
+              <div class="kv-row"><span>수집 방식</span><strong>OPC 자동</strong></div>
+              <div class="kv-row"><span>금일 생산량</span><strong>118t</strong></div>
+              <div class="kv-row"><span>로트번호</span><strong>LOT-20260414-01</strong></div>
+              <div class="kv-row"><span>마지막 실적</span><strong>2026-04-14 14:18</strong></div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>최근 실적 타임라인</h4>
+            <div class="timeline compact">
+              <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">DR-01 42t 수집</div><div class="timeline-sub">OPC 자동 반영</div></div><div class="timeline-time">14:18</div></div>
+              <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">DR-04 38t 수집</div><div class="timeline-sub">OPC 자동 반영</div></div><div class="timeline-time">13:55</div></div>
+              <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">DR-03 보정</div><div class="timeline-sub">OPC 수집 지연, 수동 입력</div></div><div class="timeline-time">12:30</div></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="outline-btn" onclick="navTo('/production/label')">라벨 출력</button>
+            <button class="secondary-btn" onclick="navTo('/trace')">추적 조회</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderTG() {
+  return `
+    <div class="stack">
+      <div class="metric-grid">
+        ${metricCard("금일 TG 생산량", "1,124t", "목표 1,200t / 달성률 94%", "success")}
+        ${metricCard("설비 가동", "6/7대", "TG-03 정지 42분", "warning")}
+        ${metricCard("접점 수집", "정상 6건", "TG-03 수집 지연", "warning")}
+        ${metricCard("수동 보정", "5건", "자동 수집 예외", "warning")}
+      </div>
+      <div class="split-layout">
+        <section class="table-card">
+          <div class="panel-title">
+            <h3>TG 설비별 실적</h3>
+            <span class="panel-note">TG 7대 설비의 접점 신호 기반 생산 실적을 설비 단위로 조회합니다</span>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="equipment-grid">
+              ${equipmentCard("TG-01", "가동중", "접점 수집 정상", "98%", "normal", "/facility/status")}
+              ${equipmentCard("TG-02", "가동중", "접점 수집 정상", "91%", "normal", "/facility/status")}
+              ${equipmentCard("TG-03", "정지 42분", "접점 수집 지연", "—", "danger", "/facility/alert")}
+              ${equipmentCard("TG-04", "가동중", "접점 수집 정상", "87%", "normal", "/facility/status")}
+              ${equipmentCard("TG-05", "가동중", "접점 수집 정상", "95%", "normal", "/facility/status")}
+              ${equipmentCard("TG-06", "대기", "접점 미수신", "—", "warning", "/facility/status")}
+              ${equipmentCard("TG-07", "가동중", "접점 수집 정상", "93%", "normal", "/facility/status")}
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>설비</th><th>금일 생산량</th><th>가동 시간</th><th>마지막 실적</th><th>수집</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">TG-01</td><td>208t</td><td>7h 12m</td><td>14:32</td><td>접점</td><td><span class="pill success">자동</span></td></tr>
+              <tr><td class="mono">TG-02</td><td>184t</td><td>6h 50m</td><td>14:20</td><td>접점</td><td><span class="pill success">자동</span></td></tr>
+              <tr><td class="mono">TG-03</td><td>62t</td><td>2h 30m</td><td>11:48</td><td>—</td><td><span class="pill danger">정지</span></td></tr>
+              <tr><td class="mono">TG-04</td><td>166t</td><td>6h 40m</td><td>14:15</td><td>접점</td><td><span class="pill success">자동</span></td></tr>
+              <tr><td class="mono">TG-05</td><td>192t</td><td>7h 00m</td><td>14:28</td><td>접점</td><td><span class="pill success">자동</span></td></tr>
+              <tr><td class="mono">TG-06</td><td>—</td><td>0h</td><td>—</td><td>—</td><td><span class="pill warning">대기</span></td></tr>
+              <tr><td class="mono">TG-07</td><td>312t</td><td>7h 20m</td><td>14:30</td><td>접점</td><td><span class="pill success">자동</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>TG-03 이상 상세</h4>
+            <div class="kv">
+              <div class="kv-row"><span>현재 상태</span><strong style="color:var(--danger)">정지 42분</strong></div>
+              <div class="kv-row"><span>수집 방식</span><strong>접점 신호</strong></div>
+              <div class="kv-row"><span>정지 시각</span><strong>2026-04-14 11:48</strong></div>
+              <div class="kv-row"><span>금일 실적</span><strong>62t (미완)</strong></div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>접점 수집 현황</h4>
+            <div class="kv">
+              <div class="kv-row"><span>TG-01</span><strong>정상</strong></div>
+              <div class="kv-row"><span>TG-02</span><strong>정상</strong></div>
+              <div class="kv-row"><span>TG-03</span><strong style="color:var(--danger)">수집 지연</strong></div>
+              <div class="kv-row"><span>TG-04~07</span><strong>정상</strong></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="outline-btn" onclick="navTo('/facility/alert')">알림/안돈 확인</button>
+            <button class="secondary-btn" onclick="navTo('/production/label')">라벨 출력</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderForming() {
+  return `
+    <div class="stack">
+      <div class="metric-grid">
+        ${metricCard("금일 포밍 생산량", "520t", "목표 600t / 달성률 87%", "")}
+        ${metricCard("설비 가동", "2/3대", "PRESS-FM-04 정지", "warning")}
+        ${metricCard("부적합 연계", "2건", "형상 오차 · 규격 편차", "danger")}
+        ${metricCard("수동 보정", "3건", "OPC 수집 예외", "warning")}
+      </div>
+      <div class="split-layout">
+        <section class="table-card">
+          <div class="panel-title">
+            <h3>포밍 설비별 실적</h3>
+            <span class="panel-note">포밍 설비 FM-01~03의 OPC 기반 생산 실적과 부적합 연계 현황을 조회합니다</span>
+          </div>
+          <table>
+            <thead><tr><th>설비</th><th>금일 생산량</th><th>가동 시간</th><th>마지막 실적</th><th>부적합</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">FM-01</td><td>218t</td><td>6h 55m</td><td>14:10</td><td>—</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">FM-02</td><td>302t</td><td>7h 00m</td><td>14:22</td><td><span class="pill danger">1건</span></td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">PRESS-FM-04</td><td>—</td><td>0h</td><td>13:48</td><td>—</td><td><span class="pill danger">점검 정지</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:18px; border-top:1px solid var(--surface-border); padding-top:16px;">
+            <div class="panel-title compact"><h3>목표 달성률</h3></div>
+            <div class="progress-list">
+              <div class="progress-item">
+                <div class="progress-head"><span class="progress-name">FM-01</span><span class="progress-value">218t / 240t</span></div>
+                <div class="progress-track"><div class="progress-fill forming" style="width:91%"></div></div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-head"><span class="progress-name">FM-02</span><span class="progress-value">302t / 360t</span></div>
+                <div class="progress-track"><div class="progress-fill forming" style="width:84%"></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>FM-02 부적합 연계</h4>
+            <div class="kv">
+              <div class="kv-row"><span>부적합 유형</span><strong>형상 오차</strong></div>
+              <div class="kv-row"><span>제작번호</span><strong>LX-21018</strong></div>
+              <div class="kv-row"><span>중량</span><strong>12.4kg</strong></div>
+              <div class="kv-row"><span>등록 시각</span><strong>13:47</strong></div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>PRESS-FM-04 정지 현황</h4>
+            <div class="kv">
+              <div class="kv-row"><span>정지 유형</span><strong>과열 경고</strong></div>
+              <div class="kv-row"><span>정지 시각</span><strong>13:48</strong></div>
+              <div class="kv-row"><span>조치자</span><strong>FAC-02</strong></div>
+              <div class="kv-row"><span>조치 상태</span><strong>현장 확인 중</strong></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="outline-btn" onclick="navTo('/quality/register')">부적합 등록</button>
+            <button class="secondary-btn" onclick="navTo('/facility/alert')">설비 알림 확인</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssembly() {
+  return `
+    <div class="stack">
+      <div class="metric-grid">
+        ${metricCard("금일 조립 생산량", "363t", "목표 328t / 달성률 111%", "success")}
+        ${metricCard("라인 가동", "4/5라인", "2라인 자재 교체 중", "warning")}
+        ${metricCard("패킹 완료", "18건", "야적 등록 대기 3건", "")}
+        ${metricCard("외주 조립", "3건", "진행 중 / 1건 지연", "warning")}
+      </div>
+      <div class="split-layout">
+        <section class="table-card">
+          <div class="panel-title">
+            <h3>조립 라인별 실적</h3>
+            <span class="panel-note">조립 5개 라인의 생산 실적과 패킹 완료 현황을 라인 단위로 조회합니다</span>
+          </div>
+          <table>
+            <thead><tr><th>라인</th><th>금일 생산량</th><th>패킹 완료</th><th>마지막 실적</th><th>외주</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">조립 1라인</td><td>84t</td><td>5건</td><td>14:28</td><td>—</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">조립 2라인</td><td>—</td><td>3건</td><td>11:03</td><td>O</td><td><span class="pill warning">자재 교체</span></td></tr>
+              <tr><td class="mono">조립 3라인</td><td>92t</td><td>4건</td><td>14:15</td><td>—</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">조립 4라인</td><td>98t</td><td>4건</td><td>14:30</td><td>—</td><td><span class="pill success">가동중</span></td></tr>
+              <tr><td class="mono">조립 5라인</td><td>89t</td><td>2건</td><td>14:25</td><td>O</td><td><span class="pill success">가동중</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:18px; border-top:1px solid var(--surface-border); padding-top:16px;">
+            <div class="panel-title compact"><h3>패킹 대기 목록</h3></div>
+            <div class="kv">
+              <div class="kv-row"><span>PK-22024</span><strong><span class="pill warning">위치 미등록</span></strong></div>
+              <div class="kv-row"><span>PK-22025</span><strong><span class="pill warning">위치 미등록</span></strong></div>
+              <div class="kv-row"><span>PK-22026</span><strong><span class="pill warning">위치 미등록</span></strong></div>
+            </div>
+          </div>
+        </section>
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>외주 조립 현황</h4>
+            <div class="kv">
+              <div class="kv-row"><span>LX-22004</span><strong><span class="pill">지시 등록</span></strong></div>
+              <div class="kv-row"><span>LX-22010</span><strong><span class="pill warning">작업 중</span></strong></div>
+              <div class="kv-row"><span>LX-22018</span><strong><span class="pill danger">지연</span></strong></div>
+            </div>
+          </div>
+          <div class="detail-block">
+            <h4>패킹 → 야적 흐름</h4>
+            <div class="timeline compact">
+              <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">PK-22020 야적 완료</div><div class="timeline-sub">Y-A03-01 등록</div></div><div class="timeline-time">13:20</div></div>
+              <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">PK-22024 위치 미등록</div><div class="timeline-sub">등록 필요</div></div><div class="timeline-time">진행중</div></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="outline-btn" onclick="navTo('/outsource')">외주 현황 보기</button>
+            <button class="secondary-btn" onclick="navTo('/inventory/yard')">야적장 등록</button>
+          </div>
+        </aside>
+      </div>
     </div>
   `;
 }
@@ -771,8 +1719,8 @@ function renderProgress(params = new URLSearchParams()) {
             </div>
           </div>
           <div class="btn-row">
-            <button class="outline-btn">부적합 등록</button>
-            <button class="secondary-btn">추적 조회 이동</button>
+            <button class="outline-btn" onclick="navTo('/quality/register')">부적합 등록</button>
+            <button class="secondary-btn" onclick="navTo('/trace')">추적 조회 이동</button>
           </div>
         </aside>
       </div>
@@ -828,8 +1776,8 @@ function renderLabel() {
           </div>
         </div>
         <div class="btn-row">
-          <button class="outline-btn">미리보기</button>
-          <button class="secondary-btn">라벨 출력</button>
+          <button class="outline-btn" onclick="showLabelPreviewModal()">미리보기</button>
+          <button class="secondary-btn" onclick="showSaveSuccessModal('라벨 출력 완료', '신선-PRN-01 프린터로 2매 출력 완료되었습니다.')">라벨 출력</button>
         </div>
       </section>
       <aside class="detail-panel">
@@ -872,8 +1820,8 @@ function renderQuality(mode) {
                 </div></div>
               </div>
               <div class="btn-row">
-                <button class="outline-btn">임시 저장</button>
-                <button class="secondary-btn">부적합 등록</button>
+                <button class="outline-btn" onclick="showSaveSuccessModal('임시 저장 완료', '부적합 등록 내용이 임시 저장되었습니다.')">임시 저장</button>
+                <button class="secondary-btn" onclick="showDefectRegisterModal()">부적합 등록</button>
               </div>
             </section>
             <aside class="detail-panel">
@@ -903,9 +1851,9 @@ function renderQuality(mode) {
             <table>
               <thead><tr><th>일자</th><th>공정</th><th>유형</th><th>수량/중량</th><th>상태</th></tr></thead>
               <tbody>
-                <tr><td>2026-04-14</td><td>포밍</td><td>형상 오차</td><td>12.4kg</td><td><span class="pill danger">확인 필요</span></td></tr>
-                <tr><td>2026-04-14</td><td>TG</td><td>표면 손상</td><td>3건</td><td><span class="pill warning">품질 검토</span></td></tr>
-                <tr><td>2026-04-13</td><td>포밍</td><td>규격 편차</td><td>2건</td><td><span class="pill success">조치 완료</span></td></tr>
+                <tr style="cursor:pointer" onclick="navTo('/trace')"><td>2026-04-14</td><td>포밍</td><td>형상 오차</td><td>12.4kg</td><td><span class="pill danger">확인 필요</span></td></tr>
+                <tr style="cursor:pointer" onclick="navTo('/trace')"><td>2026-04-14</td><td>TG</td><td>표면 손상</td><td>3건</td><td><span class="pill warning">품질 검토</span></td></tr>
+                <tr style="cursor:pointer" onclick="navTo('/trace')"><td>2026-04-13</td><td>포밍</td><td>규격 편차</td><td>2건</td><td><span class="pill success">조치 완료</span></td></tr>
               </tbody>
             </table>
           </section>
@@ -944,8 +1892,8 @@ function renderCertificate() {
           </div>
         </div>
         <div class="btn-row">
-          <button class="outline-btn">미리보기</button>
-          <button class="secondary-btn">PDF 발행</button>
+          <button class="outline-btn" onclick="showCertPreviewModal()">미리보기</button>
+          <button class="secondary-btn" onclick="showSaveSuccessModal('PDF 발행 완료', '삼성 A현장 LX-20948 성적서가 PDF로 발행되었습니다.')">PDF 발행</button>
         </div>
       </section>
       <aside class="detail-panel">
@@ -1000,8 +1948,8 @@ function renderInventory(mode) {
             </div>
           </div>
           <div class="btn-row">
-            <button class="outline-btn">위치 수정</button>
-            <button class="secondary-btn">출하 완료</button>
+            <button class="outline-btn" onclick="showLocationEditModal()">위치 수정</button>
+            <button class="secondary-btn" onclick="showShippingCompleteModal()">출하 완료</button>
           </div>
         </aside>
       </div>
@@ -1019,8 +1967,8 @@ function renderMaterial() {
       <table>
         <thead><tr><th>로트번호</th><th>원자재 종류</th><th>공급사</th><th>입고일</th><th>잔량</th><th>경고</th></tr></thead>
         <tbody>
-          <tr><td class="mono">LOT-20260401-01</td><td>이형철선</td><td>영광선재</td><td>2026-04-01</td><td>420kg</td><td><span class="pill warning">FIFO 경고</span></td></tr>
-          <tr><td class="mono">LOT-20260409-03</td><td>원형철선</td><td>대한철강</td><td>2026-04-09</td><td>1,240kg</td><td><span class="pill success">정상</span></td></tr>
+          <tr style="cursor:pointer" onclick="navTo('/trace')"><td class="mono">LOT-20260401-01</td><td>이형철선</td><td>영광선재</td><td>2026-04-01</td><td>420kg</td><td><span class="pill warning">FIFO 경고</span></td></tr>
+          <tr style="cursor:pointer" onclick="navTo('/trace')"><td class="mono">LOT-20260409-03</td><td>원형철선</td><td>대한철강</td><td>2026-04-09</td><td>1,240kg</td><td><span class="pill success">정상</span></td></tr>
         </tbody>
       </table>
     </section>
@@ -1100,6 +2048,9 @@ function renderFacility(mode) {
                     <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">포밍-04 점검 시작</div><div class="timeline-sub">13:48</div></div></div>
                   </div>
                 </div>
+                <div class="btn-row" style="margin-top:16px">
+                  <button class="secondary-btn" onclick="navTo('/facility/alert')">알림/안돈 화면 이동</button>
+                </div>
               </aside>
             </div>
           `
@@ -1121,8 +2072,7 @@ function renderFacility(mode) {
                   <h4>대응 메모</h4>
                   <div class="kv">
                     <div class="kv-row"><span>알림 대상</span><strong>생산관리자 / 공무팀</strong></div>
-                    <div class="kv-row"><span>1차 범위</span><strong>안돈 및 이상 알림</strong></div>
-                    <div class="kv-row"><span>2차 범위</span><strong>MTBF, 정지 이력 고도화</strong></div>
+                    <div class="kv-row"><span>알림 범위</span><strong>안돈 및 설비 이상 알림</strong></div>
                   </div>
                 </div>
                 <div class="detail-block">
@@ -1132,6 +2082,9 @@ function renderFacility(mode) {
                     <div class="kv-row"><span>조치 상태</span><strong>현장 확인 중</strong></div>
                     <div class="kv-row"><span>최근 메모</span><strong>윤활 라인 재점검</strong></div>
                   </div>
+                </div>
+                <div class="btn-row" style="margin-top:4px">
+                  <button class="secondary-btn" onclick="navTo('/facility/status')">설비 상태 화면 이동</button>
                 </div>
               </aside>
             </div>
@@ -1184,8 +2137,8 @@ function renderOutsource() {
           </div>
         </div>
         <div class="btn-row">
-          <button class="outline-btn">상태 변경</button>
-          <button class="secondary-btn">야적장 화면 이동</button>
+          <button class="outline-btn" onclick="showStatusChangeModal()">상태 변경</button>
+          <button class="secondary-btn" onclick="navTo('/inventory/yard')">야적장 화면 이동</button>
         </div>
       </aside>
     </div>
