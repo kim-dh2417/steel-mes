@@ -1271,7 +1271,7 @@ function renderDashboard() {
             <button class="outline-btn" onclick="navTo('/trace')" style="padding:5px 12px;font-size:11px;white-space:nowrap;">흐름 추적으로 보기</button>
           </div>
           <div class="alert-list">
-            <div class="alert-item" onclick="showAlertDetailPopup('material_inbound')" style="cursor:pointer">
+            <div class="alert-item success" onclick="showAlertDetailPopup('material_inbound')" style="cursor:pointer">
               <div class="alert-head">
                 <div class="alert-title">원자재 입고 — LOT-20260416-02</div>
                 <div class="alert-time">14:23</div>
