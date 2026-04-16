@@ -110,9 +110,9 @@ const ROUTES = {
     render: renderProgress,
   },
   "/production/label": {
-    title: "라벨 출력",
-    breadcrumb: "생산관리 / 공정 라벨과 KS 라벨을 출력합니다",
-    render: renderLabel,
+    title: "라벨 관리",
+    breadcrumb: "생산관리 / 라벨 발행, 조회, 재출력을 LOT 기준으로 관리합니다",
+    render: (params) => renderLabel(params),
   },
   "/production/target": {
     title: "실적 목표 설정",
@@ -841,6 +841,121 @@ function showOutsourceRegisterModal() {
     `<button class="outline-btn" onclick="closeModal()">취소</button>
      <button class="secondary-btn" onclick="showSaveSuccessModal('지시 등록 완료', '외주 조립 지시가 등록되었습니다.')">등록</button>`
   );
+}
+
+function showWorkOrderSelectPopup() {
+  const rows = [
+    { id: "LX-21044", site: "현대 B현장", item: "데크 플레이트 22SQ", status: "진행중", date: "2026-04-14" },
+    { id: "LX-21045", site: "삼성 A현장", item: "데크 플레이트 19SQ", status: "진행중", date: "2026-04-14" },
+    { id: "LX-21046", site: "현대 C현장", item: "데크 플레이트 25SQ", status: "대기",   date: "2026-04-15" },
+    { id: "LX-21040", site: "롯데 D현장", item: "데크 플레이트 22SQ", status: "완료",   date: "2026-04-13" },
+    { id: "LX-21038", site: "GS E현장",  item: "데크 플레이트 19SQ", status: "완료",   date: "2026-04-12" },
+  ];
+  const pillClass = (s) => s === "진행중" ? "success" : s === "대기" ? "warning" : "";
+  showModal(
+    "작업지시 선택",
+    `<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">현재 공정에 해당하는 작업지시 목록입니다. 선택하면 LOT 목록이 자동 연동됩니다.</p>
+    <table>
+      <thead><tr><th>작업지시</th><th>현장명</th><th>품목명</th><th>상태</th><th>일자</th><th></th></tr></thead>
+      <tbody>
+        ${rows.map(r => `
+        <tr style="cursor:pointer;" onclick="selectWorkOrder('${r.id}','${r.site}','${r.item}')">
+          <td class="mono">${r.id}</td>
+          <td>${r.site}</td>
+          <td>${r.item}</td>
+          <td><span class="pill ${pillClass(r.status)}">${r.status}</span></td>
+          <td>${r.date}</td>
+          <td><button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();selectWorkOrder('${r.id}','${r.site}','${r.item}')">선택</button></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`,
+    `<button class="outline-btn" onclick="closeModal()">닫기</button>`
+  );
+}
+
+function updateLabelPreview() {
+  const woEl  = document.getElementById("label-wo-selected");
+  const lotEl = document.getElementById("label-lot-selected");
+  const procChip = document.querySelector("[id^='lp-'].active");
+
+  const wo   = woEl  ? woEl.querySelector("div:first-child").textContent.trim()  : "—";
+  const lot  = lotEl ? lotEl.querySelector("div:first-child").textContent.trim() : "—";
+  const proc = procChip ? procChip.textContent.trim() : "입고";
+  const map  = LABEL_PROCESS_MAP[proc] || LABEL_PROCESS_MAP["입고"];
+
+  const woInfo = woEl ? (woEl.querySelector("div:last-child")?.textContent || "") : "";
+  const parts  = woInfo.split("·");
+  const site   = parts[0]?.trim() || "—";
+  const item   = parts[1]?.trim() || "품목명";
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set("preview-title",        item);
+  set("preview-meta",         `${lot} · ${site}`);
+  set("preview-barcode-text", `${wo} | ${lot}`);
+  set("preview-caption",      `*${wo.replace(/-/g,"")}-${lot.slice(0,12).replace(/-/g,"")}*`);
+  set("preview-badge",        map.types[0]);
+  set("preview-proc",         proc);
+  set("lp-type-badge",        map.types.join(" / "));
+  set("lp-barcode-type",      map.barcodeType);
+}
+
+function selectWorkOrder(id, site, item) {
+  const el = document.getElementById("label-wo-selected");
+  if (el) {
+    el.querySelector("div > div:first-child").textContent = id;
+    el.querySelector("div > div:last-child").textContent = `${site} · ${item} · 진행중`;
+  }
+  updateLabelPreview();
+  showLotSelectPopup(id);
+}
+
+function showLotSelectPopup(woId) {
+  const lots = {
+    "LX-21044": [
+      { lot: "LOT-20260414-03", type: "이형철선", supplier: "영광선재", remain: "420kg", date: "2026-04-14" },
+      { lot: "LOT-20260410-02", type: "이형철선", supplier: "영광선재", remain: "180kg", date: "2026-04-10" },
+    ],
+    "LX-21045": [
+      { lot: "LOT-20260414-04", type: "원형철선", supplier: "대한철강", remain: "1,240kg", date: "2026-04-14" },
+    ],
+    "LX-21046": [
+      { lot: "LOT-20260415-01", type: "이형철선", supplier: "영광선재", remain: "850kg", date: "2026-04-15" },
+    ],
+  };
+  const list = lots[woId] || [
+    { lot: "LOT-20260413-01", type: "이형철선", supplier: "영광선재", remain: "320kg", date: "2026-04-13" },
+  ];
+  showModal(
+    `LOT 선택 — ${woId || "작업지시"}`,
+    `<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">선택한 작업지시에 연결된 LOT 목록입니다. FIFO 기준 상위 항목 사용을 권장합니다.</p>
+    <table>
+      <thead><tr><th>LOT 번호</th><th>원자재 종류</th><th>공급사</th><th>잔량</th><th>입고일</th><th></th></tr></thead>
+      <tbody>
+        ${list.map((l, i) => `
+        <tr style="cursor:pointer;" onclick="selectLot('${l.lot}','${l.type}','${l.supplier}','${l.remain}','${l.date}')">
+          <td class="mono">${l.lot}${i === 0 ? ' <span class="pill success" style="font-size:10px;padding:2px 6px;">FIFO</span>' : ''}</td>
+          <td>${l.type}</td>
+          <td>${l.supplier}</td>
+          <td>${l.remain}</td>
+          <td>${l.date}</td>
+          <td><button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="event.stopPropagation();selectLot('${l.lot}','${l.type}','${l.supplier}','${l.remain}','${l.date}')">선택</button></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`,
+    `<button class="outline-btn" onclick="showWorkOrderSelectPopup()">← 작업지시 다시 선택</button>
+     <button class="outline-btn" onclick="closeModal()">닫기</button>`
+  );
+}
+
+function selectLot(lot, type, supplier, remain, date) {
+  const el = document.getElementById("label-lot-selected");
+  if (el) {
+    el.querySelector("div > div:first-child").textContent = lot;
+    el.querySelector("div > div:last-child").textContent = `${type} · ${supplier} · 잔량 ${remain} · 입고 ${date}`;
+  }
+  closeModal();
+  updateLabelPreview();
 }
 
 function parseHashState() {
@@ -1916,150 +2031,496 @@ function renderProgress(params = new URLSearchParams()) {
   `;
 }
 
-function renderLabel() {
+// 공정별 라벨 유형 매핑
+const LABEL_PROCESS_MAP = {
+  "입고":  { types: ["원자재 라벨"],              badge: "원자재",  barcodeType: "CODE128" },
+  "조립":  { types: ["완제품 라벨", "KS 라벨"],   badge: "완제품",  barcodeType: "CODE128" },
+  "출하":  { types: ["출하 라벨"],                badge: "출하",    barcodeType: "QR" },
+};
+
+function renderLabelIssue() {
+  return `
+    <div class="split-layout" style="align-items:start;grid-template-columns:minmax(0,1fr) 300px;">
+
+      <!-- 왼쪽: 전체 폼 -->
+      <div class="stack" style="gap:12px;">
+
+        <!-- 공정 선택 -->
+        <div class="detail-block" style="padding:14px 16px;">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;">공정 선택</div>
+            <div style="display:flex;gap:6px;">
+              <div class="tab-chip active" id="lp-입고" onclick="selectLabelProcess('입고')" style="padding:6px 14px;">입고</div>
+              <div class="tab-chip" id="lp-조립" onclick="selectLabelProcess('조립')" style="padding:6px 14px;">조립</div>
+              <div class="tab-chip" id="lp-출하" onclick="selectLabelProcess('출하')" style="padding:6px 14px;">출하</div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:16px;font-size:12px;color:var(--muted);">
+              <span>라벨유형 <strong id="lp-type-badge" style="color:var(--accent);">원자재 라벨</strong></span>
+              <span>바코드 <strong id="lp-barcode-type">CODE128</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 작업지시 + LOT 선택 (가로 나란히) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="detail-block" style="padding:14px 16px;">
+            <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">작업지시 선택</div>
+            <div id="label-wo-selected" style="padding:10px 12px;border:1px solid var(--accent);background:#f4fbf3;margin-bottom:8px;cursor:pointer;" onclick="showWorkOrderSelectPopup()">
+              <div style="font-size:13px;font-weight:800;color:var(--text);">—</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">목록에서 선택해주세요</div>
+            </div>
+            <button class="outline-btn" style="width:100%;font-size:11px;padding:7px;" onclick="showWorkOrderSelectPopup()">목록에서 선택 →</button>
+          </div>
+          <div class="detail-block" style="padding:14px 16px;">
+            <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">LOT 선택 <span style="font-weight:600;color:var(--accent);text-transform:none;">작업지시 연동</span></div>
+            <div id="label-lot-selected" style="padding:10px 12px;border:1px solid var(--accent);background:#f4fbf3;margin-bottom:8px;cursor:pointer;" onclick="showLotSelectPopup()">
+              <div style="font-size:13px;font-weight:800;color:var(--text);">—</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">작업지시 선택 후 연동됩니다</div>
+            </div>
+            <button class="outline-btn" style="width:100%;font-size:11px;padding:7px;" onclick="showLotSelectPopup()">목록에서 선택 →</button>
+          </div>
+        </div>
+
+        <!-- 품목 정보 -->
+        <div class="detail-block" style="padding:14px 16px;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">품목 정보 <span style="font-weight:600;color:var(--accent);text-transform:none;">LOT 선택 시 자동 반영</span></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px 16px;">
+            <div><div style="font-size:11px;color:var(--muted);">품목코드</div><div style="font-size:13px;font-weight:800;">DK-004-22SQ</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">품목명</div><div style="font-size:13px;font-weight:800;">데크 플레이트 22SQ</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">고객사</div><div style="font-size:13px;font-weight:800;">현대건설</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">현장명</div><div style="font-size:13px;font-weight:800;">현대 B현장</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">KS 규격</div><div style="font-size:13px;font-weight:800;">KS-DK-004</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">생산일자</div><div style="font-size:13px;font-weight:800;">2026-04-14</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">공급사</div><div style="font-size:13px;font-weight:800;">영광선재</div></div>
+            <div><div style="font-size:11px;color:var(--muted);">로트 잔량</div><div style="font-size:13px;font-weight:800;">420 kg</div></div>
+          </div>
+        </div>
+
+        <!-- 출력 정보 -->
+        <div class="detail-block" style="padding:14px 16px;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">출력 정보</div>
+          <div style="display:grid;grid-template-columns:auto auto auto 1fr;gap:8px 20px;align-items:center;">
+            <div style="font-size:12px;color:var(--muted);">발행 수량</div>
+            <input type="number" value="2" min="1" style="width:64px;padding:6px 8px;border:1px solid var(--surface-border);font-size:14px;font-weight:800;text-align:center;" />
+            <div style="font-size:12px;color:var(--muted);">프린터</div>
+            <select style="padding:7px 10px;border:1px solid var(--surface-border);font-size:12px;font-weight:700;background:#fff;">
+              <option>신선-PRN-01 ● 정상</option>
+              <option>포밍-PRN-01</option>
+              <option>조립-PRN-01</option>
+              <option>오피스-PAD-01</option>
+            </select>
+            <div style="font-size:12px;color:var(--muted);">출력 매수</div>
+            <input type="number" value="2" min="1" style="width:64px;padding:6px 8px;border:1px solid var(--surface-border);font-size:14px;font-weight:800;text-align:center;" />
+            <div style="font-size:12px;color:var(--muted);">비고</div>
+            <input type="text" placeholder="특이사항 (선택)" style="padding:7px 10px;border:1px solid var(--surface-border);font-size:12px;" />
+          </div>
+        </div>
+
+        <!-- 버튼 -->
+        <div class="btn-row" style="justify-content:flex-end;">
+          <button class="outline-btn" onclick="showSaveSuccessModal('초기화 완료', '입력 내용이 초기화되었습니다.')">초기화</button>
+          <button class="secondary-btn" onclick="showSaveSuccessModal('라벨 출력 완료', '출력이 완료되었습니다.')">출력</button>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 미리보기 + 이력 -->
+      <div class="stack" style="gap:12px;">
+        <div class="detail-block" style="padding:14px 16px;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">라벨 미리보기</div>
+          <div class="barcode-preview-card" style="margin-top:0;">
+            <div class="barcode-preview-head">
+              <div class="barcode-preview-title" id="preview-title">—</div>
+              <div class="barcode-preview-meta" id="preview-meta">작업지시·LOT 선택 후 반영</div>
+            </div>
+            <div class="barcode-chip-row">
+              <span class="pill success" id="preview-badge">원자재 라벨</span>
+              <span class="pill" id="preview-proc">입고</span>
+            </div>
+            <div class="barcode-block">
+              <div class="barcode-text" id="preview-barcode-text">— | —</div>
+              <div class="barcode-bars"></div>
+              <div class="barcode-caption" id="preview-caption">*선택 대기*</div>
+            </div>
+          </div>
+          <button class="secondary-btn" style="width:100%;margin-top:10px;" onclick="showSaveSuccessModal('라벨 출력 완료', '출력이 완료되었습니다.')">라벨 출력</button>
+        </div>
+
+        <div class="detail-block" style="padding:14px 16px;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">최근 발행 이력</div>
+          <div class="timeline compact">
+            <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">LX-21044 / 원자재 라벨</div><div class="timeline-sub">OP-03 · 2매</div></div><div class="timeline-time">12:10</div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">LX-21041 / 원자재 라벨</div><div class="timeline-sub">OP-01 · 1매</div></div><div class="timeline-time">11:42</div></div>
+            <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">PK-22024 / 출하 라벨</div><div class="timeline-sub">재출력 · 인쇄 흐림</div></div><div class="timeline-time">10:58</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function selectLabelProcess(proc) {
+  document.querySelectorAll("[id^='lp-']").forEach(el => {
+    if (["lp-입고","lp-조립","lp-출하"].includes(el.id)) el.classList.remove("active");
+  });
+  const chip = document.getElementById("lp-" + proc);
+  if (chip) chip.classList.add("active");
+
+  const map = LABEL_PROCESS_MAP[proc];
+  if (!map) return;
+
+  const typeBadge = document.getElementById("lp-type-badge");
+  if (typeBadge) typeBadge.textContent = map.types.join(" / ");
+
+  const barcodeType = document.getElementById("lp-barcode-type");
+  if (barcodeType) barcodeType.textContent = map.barcodeType;
+
+  const previewBadge = document.getElementById("preview-badge");
+  if (previewBadge) previewBadge.textContent = map.types[0];
+
+  // 작업지시 선택 상태 초기화
+  const woEl = document.getElementById("label-wo-selected");
+  if (woEl) {
+    woEl.querySelector("div > div:first-child").textContent = "—";
+    woEl.querySelector("div > div:last-child").textContent = "목록에서 선택해주세요";
+  }
+  const lotEl = document.getElementById("label-lot-selected");
+  if (lotEl) {
+    lotEl.querySelector("div > div:first-child").textContent = "—";
+    lotEl.querySelector("div > div:last-child").textContent = "작업지시 선택 후 연동됩니다";
+  }
+  updateLabelPreview();
+}
+
+function renderLabelSearch() {
+  return `
+    <div class="stack">
+      <div class="filter-row">
+        ${filterField("LOT 번호", "LOT-20260414-03")}
+        ${filterField("작업지시", "LX-21044")}
+        ${filterField("공정", "전체")}
+        ${filterField("기간", "2026-04-14 ~ 오늘")}
+      </div>
+      <section class="table-card">
+        <div class="panel-title">
+          <h3>라벨 발행 목록</h3>
+          <span class="panel-note">LOT·작업지시·공정·기간 기준으로 발행된 라벨을 조회하고 재출력할 수 있습니다</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>발행일시</th>
+              <th>공정</th>
+              <th>LOT 번호</th>
+              <th>품목명</th>
+              <th>수량</th>
+              <th>발행자</th>
+              <th>상태</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">2026-04-14 12:10</td>
+              <td>입고</td>
+              <td class="mono">LOT-20260414-03</td>
+              <td>데크 플레이트 22SQ</td>
+              <td>2매</td>
+              <td>OP-03</td>
+              <td><span class="pill success">정상</span></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="navTo('/production/label?tab=detail')">상세보기</button>
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260414-03 라벨 1매를 재출력했습니다.')">재출력</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">2026-04-14 11:42</td>
+              <td>입고</td>
+              <td class="mono">LOT-20260409-03</td>
+              <td>원형철선 5.5mm</td>
+              <td>1매</td>
+              <td>OP-01</td>
+              <td><span class="pill success">정상</span></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="navTo('/production/label?tab=detail')">상세보기</button>
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260409-03 라벨 1매를 재출력했습니다.')">재출력</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">2026-04-14 10:58</td>
+              <td>출하</td>
+              <td class="mono">LOT-20260401-01</td>
+              <td>데크 플레이트 19SQ</td>
+              <td>1매</td>
+              <td>OP-02</td>
+              <td><span class="pill warning">재출력</span></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="navTo('/production/label?tab=detail')">상세보기</button>
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260401-01 라벨 1매를 재출력했습니다.')">재출력</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">2026-04-13 16:22</td>
+              <td>조립</td>
+              <td class="mono">LOT-20260413-02</td>
+              <td>데크 플레이트 22SQ</td>
+              <td>3매</td>
+              <td>OP-04</td>
+              <td><span class="pill success">정상</span></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="navTo('/production/label?tab=detail')">상세보기</button>
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260413-02 라벨 1매를 재출력했습니다.')">재출력</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">2026-04-13 14:05</td>
+              <td>출하</td>
+              <td class="mono">LOT-20260410-01</td>
+              <td>원형철선 6.0mm</td>
+              <td>2매</td>
+              <td>OP-03</td>
+              <td><span class="pill danger">오류</span></td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="navTo('/production/label?tab=detail')">상세보기</button>
+                  <button class="outline-btn" style="padding:4px 10px;font-size:11px;" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260410-01 라벨 1매를 재출력했습니다.')">재출력</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  `;
+}
+
+function renderLabelDetail() {
   return `
     <div class="split-layout">
       <section class="hero-panel">
         <div class="panel-title">
-          <h3>라벨 출력 설정</h3>
-          <span class="panel-note">라벨 템플릿 선택, 필수 데이터 검증, 출력 승인 이력을 한 번에 관리합니다</span>
+          <h3>라벨 상세 정보</h3>
+          <span class="panel-note">발행된 라벨의 상세 내용을 확인하고 재출력할 수 있습니다</span>
         </div>
-        <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
-          ${metricCard("금일 출력 건수", "38건", "정상 36 / 재출력 2", "success")}
-          ${metricCard("승인 대기", "3건", "품질 승인 대기", "warning")}
-          ${metricCard("프린터 이상", "0건", "신선-PRN-01 정상", "success")}
-          ${metricCard("라벨 오류율", "0.4%", "전주 대비 -0.2%p", "success")}
-        </div>
-        <div class="section-grid-2">
-          <div class="detail-block">
-            <h4>출력 조건</h4>
+
+        <div class="detail-block">
+          <h4>발행 정보</h4>
+          <div class="section-grid-2">
             <div class="kv">
-              <div class="kv-row"><span>공정</span><strong>신선</strong></div>
-              <div class="kv-row"><span>설비</span><strong>DR-01</strong></div>
-              <div class="kv-row"><span>제작번호</span><strong>LX-21044</strong></div>
-              <div class="kv-row"><span>라벨 종류</span><strong>KS 라벨</strong></div>
-              <div class="kv-row"><span>출력 수량</span><strong>2매</strong></div>
-              <div class="kv-row"><span>출력 사유</span><strong>출하용 신규 발행</strong></div>
+              <div class="kv-row"><span>LOT 번호</span><strong class="mono">LOT-20260414-03</strong></div>
+              <div class="kv-row"><span>작업지시</span><strong class="mono">LX-21044</strong></div>
+              <div class="kv-row"><span>공정</span><strong>입고</strong></div>
+              <div class="kv-row"><span>라벨 유형</span><strong>KS 라벨</strong></div>
+            </div>
+            <div class="kv">
+              <div class="kv-row"><span>발행일시</span><strong>2026-04-14 12:10</strong></div>
+              <div class="kv-row"><span>발행자</span><strong>OP-03</strong></div>
+              <div class="kv-row"><span>출력 매수</span><strong>2매</strong></div>
+              <div class="kv-row"><span>상태</span><strong style="color:var(--success);">정상</strong></div>
             </div>
           </div>
-          <div class="detail-block">
-            <h4>자동 삽입 항목</h4>
+        </div>
+
+        <div class="detail-block">
+          <h4>품목 정보</h4>
+          <div class="section-grid-2">
             <div class="kv">
-              <div class="kv-row"><span>현장명</span><strong>현대 B현장</strong></div>
+              <div class="kv-row"><span>품목코드</span><strong>DK-004-22SQ</strong></div>
+              <div class="kv-row"><span>품목명</span><strong>데크 플레이트 22SQ</strong></div>
               <div class="kv-row"><span>KS 규격</span><strong>KS-DK-004</strong></div>
-              <div class="kv-row"><span>로트번호</span><strong>LOT-20260414-03</strong></div>
+            </div>
+            <div class="kv">
+              <div class="kv-row"><span>고객사</span><strong>현대건설</strong></div>
+              <div class="kv-row"><span>현장명</span><strong>현대 B현장</strong></div>
               <div class="kv-row"><span>생산일자</span><strong>2026-04-14</strong></div>
-              <div class="kv-row"><span>QR/바코드</span><strong>LX-21044|LOT-20260414-03</strong></div>
             </div>
           </div>
         </div>
-        <section class="table-card">
-          <div class="panel-title">
-            <h3>라벨 템플릿 관리</h3>
-            <span class="panel-note">라벨 종류별 필수값과 승인 조건을 기준 템플릿으로 관리합니다</span>
-          </div>
+
+        <div class="detail-block">
+          <h4>재출력 이력</h4>
           <table>
-            <thead><tr><th>템플릿</th><th>적용 공정</th><th>필수 필드</th><th>승인 조건</th><th>상태</th></tr></thead>
+            <thead><tr><th>일시</th><th>담당자</th><th>사유</th><th>매수</th></tr></thead>
             <tbody>
-              <tr><td>KS-LABEL-V2</td><td>신선 / 포밍</td><td>제작번호, LOT, KS규격</td><td>품질팀 승인</td><td><span class="pill success">운영중</span></td></tr>
-              <tr><td>PROC-LABEL-V1</td><td>TG / 조립</td><td>제작번호, 공정, 실적시간</td><td>생산관리 승인</td><td><span class="pill">운영중</span></td></tr>
-              <tr><td>SHIP-LABEL-V1</td><td>출하</td><td>패킹번호, 현장명, 출하일자</td><td>출하담당 승인</td><td><span class="pill warning">점검중</span></td></tr>
+              <tr><td class="mono">2026-04-14 13:21</td><td>OP-03</td><td>바코드 인쇄 흐림</td><td>1매</td></tr>
             </tbody>
           </table>
-        </section>
-        <section class="table-card">
-          <div class="panel-title">
-            <h3>공정별 라벨관리 개념도</h3>
-            <span class="panel-note">공정마다 라벨 발급 시점과 검증 포인트를 동일 기준으로 운영합니다</span>
-          </div>
-          <div class="label-concept-grid">
-            <div class="label-concept-card">
-              <div class="label-concept-title">신선</div>
-              <div class="label-concept-flow">생산 완료 → 공정라벨 발급 → LOT 검증 → 부착 확인</div>
-            </div>
-            <div class="label-concept-card">
-              <div class="label-concept-title">TG</div>
-              <div class="label-concept-flow">실적 확정 → 공정라벨 발급 → 접점 로그 연계 → 이력 저장</div>
-            </div>
-            <div class="label-concept-card">
-              <div class="label-concept-title">포밍</div>
-              <div class="label-concept-flow">품질 확인 → KS라벨 발급 → 승인자 확인 → 부적합 연계</div>
-            </div>
-            <div class="label-concept-card">
-              <div class="label-concept-title">조립/출하</div>
-              <div class="label-concept-flow">패킹 완료 → 출하라벨 발급 → 바코드 스캔 → 출하 완료</div>
-            </div>
-          </div>
-        </section>
-        <div class="section-grid-2">
-          <div class="detail-block">
-            <h4>바코드 관리 방식</h4>
-            <div class="kv">
-              <div class="kv-row"><span>식별 방식</span><strong>바코드(CODE128) 우선</strong></div>
-              <div class="kv-row"><span>코드 구성</span><strong>패킹번호 + 제작번호 + LOT</strong></div>
-              <div class="kv-row"><span>추적 키</span><strong>출하 / 재고 / 추적 화면 공통</strong></div>
-              <div class="kv-row"><span>재출력 통제</span><strong>사유 입력 + 승인자 기록</strong></div>
-            </div>
-          </div>
-          <div class="detail-block">
-            <h4>출력 전 바코드 확인</h4>
-            <div class="kv">
-              <div class="kv-row"><span>대상 코드</span><strong>PK22024-LX21044-LOT2026041403</strong></div>
-              <div class="kv-row"><span>인쇄 품질</span><strong>정상(스캔 테스트 통과)</strong></div>
-              <div class="kv-row"><span>바로 출력</span><strong>가능</strong></div>
-            </div>
-            <div class="btn-row" style="margin-top:12px;">
-              <button class="outline-btn" onclick="showBarcodePreviewModal()">바코드 화면 열기</button>
-              <button class="secondary-btn" onclick="showSaveSuccessModal('바코드 즉시 출력 완료', '출력 전 확인 없이 바코드 라벨 2매를 바로 출력했습니다.')">즉시 출력</button>
+        </div>
+
+        <div class="detail-block">
+          <h4>재출력 사유 입력</h4>
+          <div style="margin-bottom:10px;">
+            <div class="filter-field-label" style="margin-bottom:6px;">사유 선택</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div class="tab-chip active" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">바코드 인쇄 흐림</div>
+              <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">라벨 파손</div>
+              <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">오인쇄</div>
+              <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">기타</div>
             </div>
           </div>
         </div>
-        <div class="section-grid-2">
-          <div class="detail-block">
-            <h4>프린터 선택</h4>
-            <div class="kv">
-              <div class="kv-row"><span>지정 프린터</span><strong>신선-PRN-01</strong></div>
-              <div class="kv-row"><span>연결 상태</span><strong>정상</strong></div>
-              <div class="kv-row"><span>용지 상태</span><strong>여유 있음</strong></div>
-              <div class="kv-row"><span>최근 점검일</span><strong>2026-04-15 09:10</strong></div>
-            </div>
-          </div>
-          <div class="detail-block">
-            <h4>필수 항목 점검</h4>
-            <div class="kv">
-              <div class="kv-row"><span>현장명</span><strong>입력 완료</strong></div>
-              <div class="kv-row"><span>로트번호</span><strong>입력 완료</strong></div>
-              <div class="kv-row"><span>KS 규격</span><strong>입력 완료</strong></div>
-              <div class="kv-row"><span>승인자</span><strong>QMS-02 확인</strong></div>
-            </div>
-          </div>
-        </div>
+
         <div class="btn-row">
-          <button class="outline-btn" onclick="showSaveSuccessModal('검증 완료', '필수 필드 및 승인 조건 검증이 완료되었습니다.')">사전 검증</button>
-          <button class="outline-btn" onclick="showLabelPreviewModal()">미리보기</button>
-          <button class="secondary-btn" onclick="showSaveSuccessModal('라벨 출력 완료', '신선-PRN-01 프린터로 2매 출력 완료되었습니다.')">라벨 출력</button>
+          <button class="outline-btn" onclick="navTo('/production/label?tab=search')">← 목록으로</button>
+          <button class="secondary-btn" onclick="showSaveSuccessModal('재출력 완료', 'LOT-20260414-03 라벨 1매를 재출력했습니다.\n재출력 이력이 자동 기록되었습니다.')">재출력</button>
         </div>
       </section>
+
       <aside class="detail-panel">
         <div class="detail-block">
-          <h4>최근 출력 이력</h4>
-          <div class="timeline">
-            <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">LX-21044 / KS 라벨</div><div class="timeline-sub">출력자 OP-03</div></div><div class="timeline-time">12:10</div></div>
-            <div class="timeline-item"><div class="timeline-dot"></div><div><div class="timeline-title">LX-21041 / 공정 라벨</div><div class="timeline-sub">출력자 OP-01</div></div><div class="timeline-time">11:42</div></div>
-            <div class="timeline-item"><div class="timeline-dot open"></div><div><div class="timeline-title">PK-22024 / 출하 라벨 재출력</div><div class="timeline-sub">사유: 바코드 인쇄 흐림</div></div><div class="timeline-time">10:58</div></div>
-          </div>
-        </div>
-        <div class="detail-block">
-          <h4>승인/재출력 관리</h4>
-          <div class="kv">
-            <div class="kv-row"><span>재출력 기준</span><strong>오인쇄/파손만 허용</strong></div>
-            <div class="kv-row"><span>재출력 승인자</span><strong>생산관리자 또는 품질팀</strong></div>
-            <div class="kv-row"><span>감사 로그</span><strong>출력자/사유/시간 자동 기록</strong></div>
+          <h4>라벨 미리보기</h4>
+          <div class="barcode-preview-card" style="margin-top:0;">
+            <div class="barcode-preview-head">
+              <div class="barcode-preview-title">데크 플레이트 22SQ</div>
+              <div class="barcode-preview-meta">LOT-20260414-03 · 현대 B현장</div>
+            </div>
+            <div class="barcode-chip-row">
+              <span class="pill success">KS 라벨</span>
+              <span class="pill">입고</span>
+              <span class="pill">2026-04-14</span>
+            </div>
+            <div class="barcode-block">
+              <div class="barcode-text">LX-21044 | LOT-20260414-03 | DK-004-22SQ</div>
+              <div class="barcode-bars"></div>
+              <div class="barcode-caption">*LX21044-LOT20260414*</div>
+            </div>
+            <div style="margin-top:12px;" class="kv">
+              <div class="kv-row" style="font-size:12px;"><span>KS 규격</span><strong>KS-DK-004</strong></div>
+              <div class="kv-row" style="font-size:12px;"><span>제조업체</span><strong>성지제강</strong></div>
+              <div class="kv-row" style="font-size:12px;"><span>생산일자</span><strong>2026-04-14</strong></div>
+            </div>
           </div>
         </div>
       </aside>
     </div>
   `;
+}
+
+function renderLabelTemplate() {
+  return `
+    <div class="stack">
+      <div class="panel-title" style="margin-bottom:0;">
+        <h3>라벨 템플릿 미리보기</h3>
+        <span class="panel-note">라벨 유형별 디자인, QR/바코드 표시 항목, 공정별 필수 데이터를 확인합니다</span>
+      </div>
+      <div class="filter-row" style="margin-bottom:0;">
+        <div class="tab-chip active" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">원자재 라벨</div>
+        <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">완제품 라벨</div>
+        <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">KS 라벨</div>
+        <div class="tab-chip" onclick="this.parentElement.querySelectorAll('.tab-chip').forEach(c=>c.classList.remove('active'));this.classList.add('active')">출하 라벨</div>
+      </div>
+
+      <div class="split-layout">
+        <section class="hero-panel">
+          <div class="detail-block">
+            <h4>공정별 표시 항목</h4>
+            <table>
+              <thead><tr><th>라벨 유형</th><th>적용 공정</th><th>필수 항목</th><th>바코드</th></tr></thead>
+              <tbody>
+                <tr><td><span class="pill">원자재</span></td><td>입고</td><td>LOT, 공급사, 중량, 입고일</td><td>CODE128</td></tr>
+                <tr><td><span class="pill success">완제품</span></td><td>조립</td><td>제작번호, LOT, 규격, 공정</td><td>CODE128</td></tr>
+                <tr><td><span class="pill" style="background:#edf7ec;color:#3a8c32;">KS 라벨</span></td><td>신선/포밍</td><td>KS규격, 로트번호, 제조업체, 생산일자</td><td>QR + CODE128</td></tr>
+                <tr><td><span class="pill warning">출하</span></td><td>출하</td><td>패킹번호, 현장명, 슬리퍼, 출하일자</td><td>QR</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="detail-block">
+            <h4>라벨 발행 흐름 (공정별)</h4>
+            <div class="label-concept-grid">
+              <div class="label-concept-card">
+                <div class="label-concept-title">입고 → 원자재 라벨</div>
+                <div class="label-concept-flow">원자재 입고 → LOT 생성 → 라벨 발행 → 창고 부착</div>
+              </div>
+              <div class="label-concept-card">
+                <div class="label-concept-title">신선/포밍 → KS 라벨</div>
+                <div class="label-concept-flow">생산 완료 → KS 항목 확인 → 승인 → KS 라벨 발행</div>
+              </div>
+              <div class="label-concept-card">
+                <div class="label-concept-title">조립 → 완제품 라벨</div>
+                <div class="label-concept-flow">패킹 완료 → 제작번호 연결 → 완제품 라벨 발행</div>
+              </div>
+              <div class="label-concept-card">
+                <div class="label-concept-title">출하 → 출하 라벨</div>
+                <div class="label-concept-flow">출하 지시 → 위치 확인 → 출하 라벨 발행 → 적재</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="detail-panel">
+          <div class="detail-block">
+            <h4>KS 라벨 샘플</h4>
+            <div class="barcode-preview-card" style="margin-top:0;">
+              <div class="barcode-preview-head">
+                <div class="barcode-preview-title">데크 플레이트 22SQ</div>
+                <div class="barcode-preview-meta">성지제강 · KS-DK-004</div>
+              </div>
+              <div class="barcode-chip-row">
+                <span class="pill" style="background:#edf7ec;color:#3a8c32;">KS 인증</span>
+                <span class="pill">2026-04-14</span>
+              </div>
+              <div class="barcode-block">
+                <div class="barcode-text">LOT-20260414-03 | KS-DK-004 | 성지제강</div>
+                <div class="barcode-bars"></div>
+                <div class="barcode-caption">*LOT20260414-KS004*</div>
+              </div>
+              <div style="margin-top:10px;" class="kv">
+                <div class="kv-row" style="font-size:12px;"><span>규격번호</span><strong>KS-DK-004</strong></div>
+                <div class="kv-row" style="font-size:12px;"><span>제조업체</span><strong>성지제강</strong></div>
+                <div class="kv-row" style="font-size:12px;"><span>굵기</span><strong>5.5mm</strong></div>
+                <div class="kv-row" style="font-size:12px;"><span>로트번호</span><strong>LOT-20260414-03</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-block" style="margin-top:0;">
+            <h4>출하 라벨 샘플</h4>
+            <div class="barcode-preview-card" style="margin-top:0;">
+              <div class="barcode-preview-head">
+                <div class="barcode-preview-title">PK-22024 · SL-15</div>
+                <div class="barcode-preview-meta">현대 B현장 · Y-B01-01</div>
+              </div>
+              <div class="barcode-chip-row">
+                <span class="pill warning">출하 준비</span>
+                <span class="pill">2026-04-15</span>
+              </div>
+              <div class="barcode-block">
+                <div class="barcode-text">PK-22024 | SL-15 | 현대B | 2026-04-15</div>
+                <div class="barcode-qr" style="display:block;width:100px;height:100px;margin:0 auto;"></div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  `;
+}
+
+function renderLabel(params = new URLSearchParams()) {
+  const tab = params.get("tab") || "issue";
+  const path = "/production/label";
+  const tabs = `
+    <div class="filter-row" style="margin-bottom:0;">
+      ${filterChipLink("라벨 발행", path, { tab: "issue" }, tab === "issue")}
+      ${filterChipLink("라벨 조회", path, { tab: "search" }, tab === "search")}
+      ${filterChipLink("상세 / 재출력", path, { tab: "detail" }, tab === "detail")}
+      ${filterChipLink("템플릿 미리보기", path, { tab: "template" }, tab === "template")}
+    </div>
+  `;
+  let content = "";
+  if (tab === "issue")    content = renderLabelIssue();
+  if (tab === "search")   content = renderLabelSearch();
+  if (tab === "detail")   content = renderLabelDetail();
+  if (tab === "template") content = renderLabelTemplate();
+  return `<div class="stack">${tabs}${content}</div>`;
 }
 
 function renderTargetSettings() {

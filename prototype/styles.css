@@ -70,7 +70,7 @@ textarea {
 
 .brand-subtitle {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.72);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -84,7 +84,7 @@ textarea {
 
 .nav-group-title {
   padding: 0 10px;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -139,17 +139,17 @@ textarea {
   border-radius: 8px;
   background: var(--primary);
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .user-name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .user-role {
-  font-size: 10px;
+  font-size: 15px;
   color: var(--muted);
 }
 
@@ -198,7 +198,7 @@ textarea {
   padding: 0 14px;
   background: var(--surface-soft);
   border: 1px solid var(--surface-border);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -292,7 +292,7 @@ textarea {
 }
 
 .metric-label {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   text-transform: uppercase;
   font-weight: 800;
@@ -366,7 +366,7 @@ textarea {
 
 .panel-title h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -416,7 +416,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 700;
 }
@@ -541,7 +541,7 @@ textarea {
 .trend-x-label,
 .trend-y-label {
   fill: #7a8391;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -558,7 +558,7 @@ textarea {
 }
 
 .bar-value {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: #1d2430;
 }
@@ -569,7 +569,7 @@ textarea {
 }
 
 .bar-label {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--muted);
 }
 
@@ -596,7 +596,7 @@ textarea {
 }
 
 .status-name {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 800;
   text-transform: uppercase;
@@ -614,7 +614,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -651,13 +651,13 @@ textarea {
 }
 
 .equipment-name {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: #2a3446;
 }
 
 .equipment-score {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: #2f7dff;
 }
@@ -696,14 +696,14 @@ textarea {
 }
 
 .equipment-state {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: #1f2a3d;
   line-height: 1.15;
 }
 
 .equipment-signal {
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 700;
   color: #6f7b90;
   line-height: 1.2;
@@ -748,7 +748,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .progress-name {
@@ -867,19 +867,19 @@ textarea {
 }
 
 .alert-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: #253149;
 }
 
 .alert-time {
-  font-size: 11px;
+  font-size: 15px;
   color: #7a8699;
 }
 
 .alert-text {
   grid-column: 2;
-  font-size: 11px;
+  font-size: 15px;
   color: #6f7b90;
   line-height: 1.25;
 }
@@ -905,7 +905,7 @@ textarea {
 }
 
 .filter-field-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -952,7 +952,7 @@ td {
 }
 
 th {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -974,7 +974,7 @@ td {
   gap: 6px;
   padding: 5px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1188,7 +1188,7 @@ button {
 }
 
 .modal-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1235,7 +1235,7 @@ button {
 }
 
 .modal-input-label {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -1266,7 +1266,7 @@ button {
 
 .modal-success-sub {
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   line-height: 1.5;
 }
@@ -1301,7 +1301,7 @@ button {
 
 .barcode-preview-meta {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 600;
 }
@@ -1331,7 +1331,7 @@ button {
 
 .barcode-text {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -1355,7 +1355,7 @@ button {
   margin-top: 8px;
   text-align: center;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: 0.04em;
   color: var(--text);
 }
@@ -1434,18 +1434,18 @@ button {
 
 .timeline-title {
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .timeline-sub {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .timeline-time {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
@@ -1463,7 +1463,7 @@ button {
 .tag {
   display: inline-block;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--muted);
   background: var(--surface-soft);
